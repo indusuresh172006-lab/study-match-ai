@@ -4570,6 +4570,57 @@ body {
    Module 5: Mock Tests & Previous Papers Styles
    ========================================================================== */
 
+.previous-papers-page .papers-filters-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.previous-papers-page .stream-filter-pills {
+  gap: 12px;
+}
+
+.previous-papers-page .courses-grid {
+  gap: 24px;
+}
+
+.previous-papers-page .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.previous-papers-page .empty-icon,
+.previous-papers-page .empty-state h3,
+.previous-papers-page .empty-state p {
+  margin: 0;
+}
+
+.previous-papers-page .empty-state .primary-btn {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.previous-papers-page .empty-state .primary-btn:hover {
+  background: var(--primary-hover);
+}
+
+.previous-papers-page .empty-state .primary-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
 .running-test-container {
   background: white;
   border-radius: var(--radius-lg);
