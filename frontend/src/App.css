@@ -5991,6 +5991,214 @@ body {
   font-size: 15px !important;
 }
 
+.course-videos-page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.course-video-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+  padding: 24px 28px;
+  border-radius: var(--radius-lg);
+  color: #FFFFFF;
+  background: linear-gradient(120deg, var(--primary-dark), var(--secondary));
+  box-shadow: var(--shadow-md);
+}
+
+.course-video-eyebrow {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.course-video-context h3 {
+  margin: 5px 0;
+  font-size: clamp(20px, 2.4vw, 28px);
+}
+
+.course-video-context p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 13px;
+}
+
+.course-video-live-badge {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.course-video-search-panel {
+  margin-bottom: 28px;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.course-video-search-panel h3,
+.course-video-section-heading h3 {
+  margin: 0;
+  color: var(--text-dark);
+  font-size: 18px;
+}
+
+.course-video-search-panel > p,
+.course-video-section-heading p {
+  margin: 6px 0 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.course-video-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.course-video-search-form label {
+  grid-column: 1 / -1;
+  margin-bottom: -6px;
+  color: var(--text-dark);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.course-video-search-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-dark);
+  background: #FFFFFF;
+  font: inherit;
+}
+
+.course-video-search-form input:focus {
+  border-color: var(--secondary);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(0, 169, 157, 0.14);
+}
+
+.course-video-search-form .action-btn-primary {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.course-video-section-heading {
+  margin-bottom: 16px;
+}
+
+.course-video-section-heading p {
+  margin-bottom: 0;
+}
+
+.course-video-topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.course-video-topic-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-dark);
+  background: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.course-video-topic-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--secondary);
+  box-shadow: var(--shadow-md);
+}
+
+.course-video-topic-card:focus-visible {
+  outline: 3px solid var(--brand-lime);
+  outline-offset: 3px;
+}
+
+.course-video-topic-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--primary);
+  background: var(--primary-light);
+  font-size: 16px;
+}
+
+.course-video-topic-card strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.course-video-topic-link {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.course-video-disclaimer {
+  margin: 16px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .course-video-context {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .course-video-search-panel {
+    padding: 18px;
+  }
+
+  .course-video-search-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .course-video-search-form label {
+    grid-column: auto;
+    margin-bottom: -6px;
+  }
+
+  .course-video-search-form .action-btn-primary {
+    width: 100%;
+  }
+
+  .course-video-topics-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
 /* FLINT visual refinements shared across existing pages */
 ::selection {
   color: var(--primary-dark);

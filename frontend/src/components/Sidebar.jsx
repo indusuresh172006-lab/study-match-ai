@@ -8,6 +8,7 @@ function Sidebar({ user }) {
     { to: "/quiz", label: "Topic Quiz", icon: "🎯" },
     { to: "/groups", label: "Study Groups", icon: "👥" },
     { to: "/materials", label: "Study Materials", icon: "📚" },
+    { to: "/videos", label: "Course Videos", icon: "▶️" },
     { to: "/guidance", label: "Course Guidance", icon: "🎓" },
     { to: "/mentor", label: "AI Mentor", icon: "🤖" },
     { to: "/mock-tests", label: "Mock Tests", icon: "📝" },

@@ -6,14 +6,15 @@ function BottomNav({ user }) {
   const navItems = [
     { to: "/dashboard", label: "Dashboard", icon: "📊" },
     { to: "/materials", label: "Notes", icon: "📚" },
+    { to: "/videos", label: "Videos", icon: "▶️" },
     { to: "/mock-tests", label: "Tests", icon: "📝" },
     { to: "/mentor", label: "AI Mentor", icon: "🤖" },
     { to: "/papers", label: "Papers", icon: "📄" },
   ];
 
   if (isTeacher) {
-    navItems[4] = { to: "/teacher", label: "Teacher", icon: "👨‍🏫" };
-    navItems[3] = { to: "/teacher/manage", label: "Manage", icon: "🛠️" };
+    navItems[4] = { to: "/teacher/manage", label: "Manage", icon: "🛠️" };
+    navItems[5] = { to: "/teacher", label: "Teacher", icon: "👨‍🏫" };
   }
 
   return (

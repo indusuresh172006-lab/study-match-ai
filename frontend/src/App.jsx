@@ -10,6 +10,7 @@ import StudentDashboard from "./pages/StudentDashboard";
 import TopicQuiz from "./pages/TopicQuiz";
 import StudyGroups from "./pages/StudyGroups";
 import StudyMaterials from "./pages/StudyMaterials";
+import CourseVideos from "./pages/CourseVideos";
 import CourseGuidance from "./pages/CourseGuidance";
 import AIMentor from "./pages/AIMentor";
 import MockTests from "./pages/MockTests";
@@ -118,6 +119,19 @@ function App() {
             user ? (
               <Layout user={user} onLogout={handleLogout}>
                 <StudyMaterials user={user} />
+              </Layout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/videos"
+          element={
+            user ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <CourseVideos />
               </Layout>
             ) : (
               <Navigate to="/login" replace />
