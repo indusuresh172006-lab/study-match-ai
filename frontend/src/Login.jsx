@@ -52,7 +52,7 @@ function Login({ onLogin, onSwitchToRegister }) {
     <div className="auth-card">
       <div className="auth-brand-head">
         <img className="auth-logo" src="/flint-logo.jpeg" alt="FLINT education logo" />
-        <h1>StudyMatch AI</h1>
+        <h1>FLINT</h1>
         <p className="auth-subtitle">Sign in to your learning dashboard</p>
       </div>
 
@@ -61,7 +61,7 @@ function Login({ onLogin, onSwitchToRegister }) {
           <label>Email Address</label>
           <input
             type="email"
-            placeholder="student@studymatch.ai"
+            placeholder="student@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

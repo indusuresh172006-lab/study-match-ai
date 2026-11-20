@@ -4,7 +4,7 @@ function Navbar({ user, onLogout }) {
       <div className="navbar-brand">
         <img className="brand-logo" src="/flint-logo.jpeg" alt="FLINT education logo" />
         <div className="brand-titles">
-          <h1>StudyMatch AI</h1>
+          <h1>FLINT</h1>
           <span className="brand-tagline">Peer-Learning & Academic Guidance</span>
         </div>
       </div>

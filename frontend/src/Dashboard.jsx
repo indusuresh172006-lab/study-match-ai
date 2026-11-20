@@ -36,7 +36,7 @@ function Dashboard({ student, onLogout }) {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1>StudyMatch AI</h1>
+        <h1>FLINT</h1>
         <button onClick={onLogout}>Logout</button>
       </header>
 

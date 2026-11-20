@@ -152,7 +152,7 @@ def _call_gemini(prompt: str, fallback_response: Optional[str] = None) -> str:
     api_key = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY)
     if not api_key:
         return fallback_response or (
-            "Hello! I am your StudyMatch Assistant. AI live generation is currently "
+            "Hello! I am your FLINT Assistant. AI live generation is currently "
             "running in offline guidance mode because an API key is not configured. "
             "Please explore the verified course roadmaps, exams, and scholarship modules above!"
         )
@@ -235,7 +235,7 @@ def _build_prompt(
         for item in resources
     ) or "No matching approved tests or papers were found."
 
-    prompt = f"""You are StudyMatch Assistant, a friendly and knowledgeable academic mentor for Indian students.
+    prompt = f"""You are FLINT Assistant, a friendly and knowledgeable academic mentor for Indian students.
 You help students with higher education guidance, course/exam queries, study tips, and understanding their own skill profile.
 
 STUDENT: {student_name}

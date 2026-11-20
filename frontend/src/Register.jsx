@@ -46,7 +46,7 @@ function Register({ onSwitchToLogin }) {
     <div className="auth-card">
       <div className="auth-brand-head">
         <img className="auth-logo" src="/flint-logo.jpeg" alt="FLINT education logo" />
-        <h1>StudyMatch AI</h1>
+        <h1>FLINT</h1>
         <p className="auth-subtitle">Create your student account</p>
       </div>
 

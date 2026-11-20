@@ -51,7 +51,7 @@ function ChatWidget({ user }) {
           {
             id: 1,
             sender: "bot",
-            message: `Hello ${user?.name || "Student"}! 👋 I am your StudyMatch Assistant. Ask me anything about syllabus topics, entrance exams, courses, colleges, or your skill profile!`,
+            message: `Hello ${user?.name || "Student"}! 👋 I am your FLINT Assistant. Ask me anything about syllabus topics, entrance exams, courses, colleges, or your skill profile!`,
           },
         ]);
       }
@@ -70,7 +70,7 @@ function ChatWidget({ user }) {
           {
             id: 1,
             sender: "bot",
-            message: `Hello ${user?.name || "Student"}! 👋 I am your StudyMatch Assistant. How can I help you today?`,
+            message: `Hello ${user?.name || "Student"}! 👋 I am your FLINT Assistant. How can I help you today?`,
           },
         ]);
       }
@@ -136,10 +136,10 @@ function ChatWidget({ user }) {
       <button
         className="floating-chat-trigger"
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Open AI StudyMatch Assistant"
+        aria-label="Open FLINT Assistant"
       >
         <span className="trigger-icon">{isOpen ? "✕" : "🤖"}</span>
-        <span className="trigger-label">{isOpen ? "Close Assistant" : "StudyMatch AI"}</span>
+        <span className="trigger-label">{isOpen ? "Close Assistant" : "FLINT Assistant"}</span>
       </button>
 
       {/* Floating Drawer / Pop-up */}
@@ -150,7 +150,7 @@ function ChatWidget({ user }) {
             <div className="chat-title-group">
               <span className="chat-avatar">🤖</span>
               <div>
-                <h4>StudyMatch Assistant</h4>
+                <h4>FLINT Assistant</h4>
                 <span className="chat-online-indicator">● RAG Academic Engine Active</span>
               </div>
             </div>

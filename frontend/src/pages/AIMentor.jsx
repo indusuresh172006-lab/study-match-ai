@@ -71,7 +71,7 @@ function AIMentor({ user }) {
           {
             id: 1,
             sender: "bot",
-            message: `Hello ${user?.name || "Student"}! 👋 I am your StudyMatch Assistant, backed by official guidance documents and your personal skill profile. How can I help you excel today?`,
+            message: `Hello ${user?.name || "Student"}! 👋 I am your FLINT Assistant, backed by official guidance documents and your personal skill profile. How can I help you excel today?`,
           },
         ]);
       }
@@ -210,7 +210,7 @@ function AIMentor({ user }) {
       {/* Page Header */}
       <div className="page-header-row">
         <div>
-          <h2>🤖 StudyMatch Assistant & Personal AI Mentor</h2>
+          <h2>🤖 FLINT Assistant & Personal AI Mentor</h2>
           <p className="page-subtitle">
             RAG-powered conversational mentor referencing verified exam syllabi, college directories, and your personal topic mastery profile.
           </p>
@@ -293,7 +293,7 @@ function AIMentor({ user }) {
             <div className="mentor-profile-group">
               <span className="mentor-avatar-badge">🤖</span>
               <div>
-                <strong>StudyMatch Assistant</strong>
+                <strong>FLINT Assistant</strong>
                 <span className="online-tag">● Powered by Gemini 1.5 & Verified RAG Database</span>
               </div>
             </div>

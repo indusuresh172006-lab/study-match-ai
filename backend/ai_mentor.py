@@ -27,7 +27,7 @@ def get_mentor_response(
     # 1. Try Gemini API if key is present
     if gemini_key:
         try:
-            prompt = f"""You are the personal AI Academic Mentor in the StudyMatch AI platform.
+            prompt = f"""You are the personal AI Academic Mentor in the FLINT platform.
 Student Name: {student_name}
 Student's Weak Topics: {', '.join(weak_topics) if weak_topics else 'None currently'}
 Student's Strong Topics: {', '.join(strong_topics) if strong_topics else 'None'}
@@ -65,7 +65,7 @@ If the student mentions or needs help with their weak topics, explain the key pr
         try:
             headers = {"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"}
             messages = [
-                {"role": "system", "content": f"You are the personal AI Academic Mentor in StudyMatch AI. Student: {student_name}. Weak topics: {weak_topics}. Strong topics: {strong_topics}."},
+                {"role": "system", "content": f"You are the personal AI Academic Mentor in FLINT. Student: {student_name}. Weak topics: {weak_topics}. Strong topics: {strong_topics}."},
                 {"role": "user", "content": user_message}
             ]
             res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json={"model": "gpt-4o-mini", "messages": messages}, timeout=8)
@@ -158,7 +158,7 @@ If the student mentions or needs help with their weak topics, explain the key pr
     # General mentor response
     weak_str = ", ".join(weak_topics) if weak_topics else "general STEM preparation"
     return (
-        f"Hello {student_name}! As your StudyMatch AI Personal Mentor, I am continuously tracking your test marks, study groups, and skill profile.\n\n"
+        f"Hello {student_name}! As your FLINT Personal Mentor, I am continuously tracking your test marks, study groups, and skill profile.\n\n"
         f"Right now, focusing on strengthening **{weak_str}** will yield the highest boost to your aggregate scores and entrance exam percentiles.\n\n"
         "How can I assist you right now? You can ask me to:\n"
         "• Break down difficult concepts into simple, intuitive analogies\n"
