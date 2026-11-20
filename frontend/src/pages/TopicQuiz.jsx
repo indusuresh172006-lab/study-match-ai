@@ -10,6 +10,7 @@ function TopicQuiz() {
   const [savingScope, setSavingScope] = useState(false);
   const [scopeMessage, setScopeMessage] = useState("");
   const [scopeError, setScopeError] = useState("");
+  const [showScopeForm, setShowScopeForm] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,12 +34,13 @@ function TopicQuiz() {
   const hasCourseScope = Boolean(
     profile?.course?.trim() && profile?.college?.trim() && profile?.semester?.trim()
   );
+  const isDiplomaCourse = profile?.course?.toLowerCase().includes("diploma");
 
   const fetchSubjects = useCallback(async () => {
     try {
       const profileRes = await api.get("/profile/me");
       setError(null);
-      const studentProfile = profileRes.data;
+      const studentProfile = profileRes.data || {};
       setProfile(studentProfile);
       setScopeForm({
         course: studentProfile.course || "",
@@ -87,6 +89,9 @@ function TopicQuiz() {
         semester: scopeForm.semester.trim(),
       });
       setScopeMessage("Course details saved. Reloading your matching syllabus...");
+      setShowScopeForm(false);
+      setSubjects([]);
+      setLoadingSubjects(true);
       await fetchSubjects();
     } catch (err) {
       const detail = err.response?.data?.detail;
@@ -428,7 +433,11 @@ function TopicQuiz() {
               <div className="modal-body-scrollable">
                 {loadingRevision ? (
                   <LoadingSpinner message="Generating pedagogical revision notes with Gemini..." />
-                ) : revisionNotes ? (
+                ) : revisionNotes?.status === "pending" ? (
+                  <p className="scope-feedback" role="status">
+                    {revisionNotes.message} Your teacher will review these notes before they are shared. Select Generate AI Revision Notes again after approval.
+                  </p>
+                ) : revisionNotes?.status === "approved" ? (
                   <div>
                     <div className="revision-overview-box">
                       <h4>📖 Overview</h4>
@@ -451,6 +460,11 @@ function TopicQuiz() {
                           {revisionNotes.practical_example}
                         </pre>
                       </div>
+                    </div>
+
+                    <div className="revision-block">
+                      <h4>🧑‍🏫 Teaching Outline:</h4>
+                      <p>{revisionNotes.teaching_outline}</p>
                     </div>
 
                     <div className="revision-block">
@@ -516,25 +530,71 @@ function TopicQuiz() {
           <h2>🎯 Topic-Wise Diagnostic Quizzes</h2>
           <p>
             {hasCourseScope
-              ? `Teacher-approved syllabus for ${profile.course} - ${profile.college} - ${profile.semester}. `
-              : "Course, board/institution, and year/semester are needed to load the right syllabus. "}
-            Your answers update your skill profile and peer-study matches.
+              ? `Syllabus and quizzes for ${profile.course}, ${profile.semester}.`
+              : "Add your current course to see its syllabus and quizzes."}
           </p>
         </div>
       </div>
 
-      {error && <ErrorMessage error={error} onRetry={fetchSubjects} />}
+      {error && (
+        <ErrorMessage
+          error={error}
+          onRetry={() => {
+            setSubjects([]);
+            setLoadingSubjects(true);
+            fetchSubjects();
+          }}
+        />
+      )}
 
-      {subjects.length === 0 ? (
-          <div className="syllabus-empty-card" role="status">
-            <div className="syllabus-empty-icon">📘</div>
-            <h3>{hasCourseScope ? "No matching syllabus published yet" : "Complete your course details first"}</h3>
-            <p>
-              {hasCourseScope
-                ? `No syllabus currently matches ${profile.course}, ${profile.college}, ${profile.semester}. Your teacher must tag the syllabus with these exact course details.`
-                : "A course, board/institution, and year/semester are required to prevent unrelated course content from appearing."}
-            </p>
-            <form className="course-scope-form" onSubmit={handleUpdateCourseScope}>
+      {!error && subjects.length === 0 ? (
+        <div className="syllabus-empty-card" role="status">
+          <div className="syllabus-empty-icon">📘</div>
+          <h3>{hasCourseScope ? "Syllabus coming soon" : "Add your course details"}</h3>
+          <p>
+            {hasCourseScope
+              ? `No syllabus is available for ${profile.course}, ${profile.semester} yet.`
+              : "Enter your course, college, and semester to find matching content."}
+          </p>
+          {hasCourseScope && (
+            <div className="syllabus-scope-summary">
+              <span>{profile.course}</span>
+              <span>{profile.college}</span>
+              <span>{profile.semester}</span>
+            </div>
+          )}
+          {isDiplomaCourse && (
+            <div className="syllabus-links">
+              <a
+                href="https://sitttrkerala.ac.in/index.php?r=site%2Fdiploma-syllabus&scheme=REV2021"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Official diploma syllabus (2021)
+              </a>
+              <a
+                href="https://sitttrkerala.ac.in/index.php?r=site%2Fdiploma-syllabus&scheme=REV2026"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Official diploma syllabus (2026)
+              </a>
+            </div>
+          )}
+          <button
+            className="action-btn-secondary"
+            type="button"
+            aria-expanded={showScopeForm}
+            aria-controls="course-scope-form"
+            onClick={() => {
+              setShowScopeForm(!showScopeForm);
+              setScopeError("");
+            }}
+          >
+            {showScopeForm ? "Cancel" : hasCourseScope ? "Edit course details" : "Enter course details"}
+          </button>
+          {showScopeForm && (
+            <form id="course-scope-form" className="course-scope-form" onSubmit={handleUpdateCourseScope}>
               <label>
                 Course / program
                 <input
@@ -542,12 +602,12 @@ function TopicQuiz() {
                   maxLength={100}
                   value={scopeForm.course}
                   onChange={(e) => setScopeForm({ ...scopeForm, course: e.target.value })}
-                  placeholder="e.g. Diploma in Civil Engineering"
+                  placeholder="e.g. Diploma in Computer Engineering"
                   required
                 />
               </label>
               <label>
-                Board / institution
+                College
                 <input
                   type="text"
                   maxLength={150}
@@ -558,7 +618,7 @@ function TopicQuiz() {
                 />
               </label>
               <label>
-                Year / semester
+                Semester
                 <input
                   type="text"
                   maxLength={20}
@@ -569,13 +629,14 @@ function TopicQuiz() {
                 />
               </label>
               <button className="action-btn-primary" type="submit" disabled={savingScope}>
-                {savingScope ? "Saving..." : "Save details and reload"}
+                {savingScope ? "Saving..." : "Save"}
               </button>
+              {scopeError && <p className="auth-error-msg" role="alert">{scopeError}</p>}
             </form>
-            {scopeMessage && <p className="scope-feedback" role="status">{scopeMessage}</p>}
-            {scopeError && <p className="auth-error-msg" role="alert">{scopeError}</p>}
-          </div>
-      ) : (
+          )}
+          {scopeMessage && <p className="scope-feedback" role="status">{scopeMessage}</p>}
+        </div>
+      ) : subjects.length > 0 ? (
       <div className="curriculum-subjects-list">
         {subjects.map((sub) => (
           <div key={sub.id} className="subject-curriculum-card">
@@ -628,7 +689,7 @@ function TopicQuiz() {
           </div>
         ))}
       </div>
-      )}
+      ) : null}
     </div>
   );
 }

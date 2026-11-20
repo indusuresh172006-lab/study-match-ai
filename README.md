@@ -46,9 +46,15 @@ StudyMatch AI is a modern web application designed for peer-learning study group
 - **Academic Counselling Flow**: Students can request 1-on-1 career counselling (Online or In-person); teachers review, schedule, and provide feedback notes.
 
 ### Peer Learning & Teacher Support
+- Teachers create course-scoped classes and share join codes; students can enroll during registration or later from Study Groups.
+- Teachers can import CSV/XLSX marks (student_email, subject, topic, score, max_score) to update topic skill profiles.
 - Teachers generate study groups only among students in the same course, board/institution, and year/semester; strong peers are paired with students who have matching weak topics.
+- Proposed groups stay hidden from students until the class teacher approves them. Availability matching separates online and offline sessions and includes "either" preferences.
 - Students can request a teacher-led study session when no peer match covers a weak topic. Requests appear in the Teacher Dashboard and students can track teacher responses in Guidance.
+- Teachers can review generated revision notes and mock tests before students can access them. Class group progress and repeated quiz-score declines are available in teacher reporting; teachers can rebuild a selected class's peer groups from the at-risk list.
 - Students with no published matching syllabus are told to ask a teacher to tag or add the appropriate course content rather than being shown unrelated material.
+
+Teacher-uploaded guidance documents are pending by default and only become chatbot sources after explicit teacher approval.
 
 ### Module 5: Adaptive Mock Tests & Previous Papers
 - **Adaptive Mock Test Engine**:
@@ -68,10 +74,12 @@ StudyMatch AI is a modern web application designed for peer-learning study group
   - PDF paper download and solution key preview.
   - Timed examination mode with automatic scoring and **remediation links** mapping wrong answers to study materials.
   - Teacher upload and approval flow.
+  - Approved PDF files are stored by the backend and downloadable from the student paper library.
+  - Teacher-authored mock tests are submitted for review, tagged to an entrance exam or assessment, and only published after approval.
 
 ### Module 6: AI Chatbot "StudyMatch Assistant" (RAG)
 - **RAG Knowledge Base**: Uses teacher-verified guidance documents (exam brochures, syllabi, career guides) chunked and indexed into vector embeddings.
-- **Context Injection**: Each query retrieves the top-5 most relevant document chunks and combines them with the student's active weak/strong topics before calling Gemini 1.5 Flash.
+- **Context Injection**: Each query retrieves the top-5 most relevant document chunks and combines them with the student's active weak/strong topics and active peer-group matches. Paper and mock-test questions also search approved resources by subject, exam, and requested year range.
 - **Verified Sources & Disclaimer**: Every response cites the source documents used and appends an official verification advisory.
 - **Persistent Multi-Session Threads**: Students can create new discussion threads, switch between sessions, or delete threads.
 - **Global Floating Chat Widget**: Accessible from the bottom right corner of every page (`🤖 StudyMatch AI`), providing instant academic assistance anywhere in the app.
@@ -144,7 +152,9 @@ CREATE DATABASE studymatch_db;
 
    GEMINI_API_KEY=YOUR_GEMINI_API_KEY
    LLM_API_KEY=YOUR_GEMINI_API_KEY
+   STUDYMATCH_UPLOAD_DIR="C:\studymatch-uploads"
    ```
+   Configure `STUDYMATCH_UPLOAD_DIR` as persistent storage in deployments; otherwise uploaded PDFs are stored under `backend/uploads/`.
 
 3. **Install Dependencies**:
    ```powershell
@@ -155,12 +165,15 @@ CREATE DATABASE studymatch_db;
    ```powershell
    python -m alembic upgrade head
    ```
+   Existing databases stamped at revision `6f2c1a8d4e90` are recognized and their partially applied course-syllabus schema is reconciled by the latest migration.
 
 5. **Seed Sample Data**:
    ```powershell
    python seed_data.py
    python seed_phase1.py
+   python seed_diploma_computer_sem3.py
    ```
+   `seed_phase1.py` also upserts diploma lateral-entry guidance when rerun, even if the general guidance catalogue was already seeded. `seed_diploma_computer_sem3.py` adds the SITTTR Revision 2021 Computer Engineering Semester III course list, plus starter practice topics, quizzes, and study notes scoped to Polytechnic College Kannur. The course list is from the official SITTTR catalog; teachers should verify the starter topics and questions against the detailed syllabus.
 
 6. **Start the FastAPI Server**:
    ```powershell
@@ -201,6 +214,12 @@ CREATE DATABASE studymatch_db;
 
 ## 🧪 Running Tests
 
+### Focused Class, Group, and Chatbot Regression Tests
+```powershell
+cd backend
+python -m pytest test_project_features.py -q
+```
+
 ### 1. Core Feature Unit Tests (10 Tests)
 ```powershell
 python backend/test_api.py
@@ -228,6 +247,13 @@ npm run build
 | **Auth** | `POST` | `/register` | Register student or teacher | Public |
 | **Auth** | `POST` | `/token` | OAuth2 login returning JWT token | Public |
 | **Profile** | `GET` | `/profile/me` | Fetch active student profile | Student/Teacher |
+| **Classes** | `POST/GET` | `/api/v1/classes` | Create or list teacher classes / student enrollments | Teacher/Student |
+| **Classes** | `POST` | `/api/v1/classes/join` | Enroll in a class with a join code | Student |
+| **Classes** | `GET` | `/api/v1/classes/{id}/students` | View the class roster | Teacher |
+| **Classes** | `POST` | `/api/v1/classes/{id}/marks/import` | Import CSV/XLSX marks and update skills | Teacher |
+| **Groups** | `POST` | `/api/v1/groups/generate` | Generate proposed groups for a class | Teacher |
+| **Groups** | `PATCH` | `/api/v1/groups/{id}/review` | Approve or reject a proposed group | Teacher |
+| **Schedules** | `POST/GET` | `/api/v1/schedules` | Add or list weekly availability and study mode | Student |
 | **Skills** | `GET` | `/skill-profile/summary` | Skill profile with weak/strong topics | Student |
 | **Materials** | `GET` | `/materials` | Paginated study materials (weak topics first) | Student/Teacher |
 | **Materials** | `POST` | `/materials` | Publish new study material | Teacher |

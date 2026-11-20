@@ -410,6 +410,7 @@ class AtRiskStudentItem(BaseModel):
     weak_topics_count: int
     weak_topics: List[str]
     average_mastery: float
+    risk_reasons: List[str] = Field(default_factory=list)
 
 
 class TeacherDashboardStats(BaseModel):

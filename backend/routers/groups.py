@@ -17,6 +17,7 @@ from models import (
     Topic,
     StudyClass,
     ClassEnrollment,
+    QuizAttempt,
 )
 from auth import get_current_user, require_teacher, require_student
 from ml.group_matcher import (
@@ -93,6 +94,7 @@ class StudyGroupDetailOut(BaseModel):
     members: List[GroupMemberSummary]
     teaching_pairs: List[PeerTeachingItem]
     common_schedules: List[Dict[str, Any]] = []
+    progress_summary: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime.datetime
 
 
@@ -111,6 +113,57 @@ class GenerateGroupsRequest(BaseModel):
 
 class GroupReviewRequest(BaseModel):
     decision: Literal["approve", "reject"]
+
+
+def _group_progress_summary(db: Session, group: StudyGroup, member_ids: List[int]) -> Dict[str, Any]:
+    if not member_ids or not group.created_at:
+        return {
+            "baseline_accuracy": None,
+            "follow_up_accuracy": None,
+            "change_points": None,
+            "compared_topic_count": 0,
+            "follow_up_quiz_count": 0,
+        }
+
+    attempts = db.query(
+        QuizAttempt.student_id,
+        QuizAttempt.topic_id,
+        QuizAttempt.accuracy,
+        QuizAttempt.created_at,
+    ).filter(
+        QuizAttempt.student_id.in_(member_ids),
+    ).order_by(QuizAttempt.created_at.asc()).all()
+
+    before: Dict[tuple, float] = {}
+    after: Dict[tuple, float] = {}
+    follow_up_quiz_count = 0
+    for student_id, topic_id, accuracy, created_at in attempts:
+        key = (student_id, topic_id)
+        if created_at < group.created_at:
+            before[key] = accuracy
+        else:
+            after[key] = accuracy
+            follow_up_quiz_count += 1
+
+    compared_keys = before.keys() & after.keys()
+    if not compared_keys:
+        return {
+            "baseline_accuracy": None,
+            "follow_up_accuracy": None,
+            "change_points": None,
+            "compared_topic_count": 0,
+            "follow_up_quiz_count": follow_up_quiz_count,
+        }
+
+    baseline = sum(before[key] for key in compared_keys) / len(compared_keys)
+    follow_up = sum(after[key] for key in compared_keys) / len(compared_keys)
+    return {
+        "baseline_accuracy": round(baseline, 1),
+        "follow_up_accuracy": round(follow_up, 1),
+        "change_points": round(follow_up - baseline, 1),
+        "compared_topic_count": len(compared_keys),
+        "follow_up_quiz_count": follow_up_quiz_count,
+    }
 
 
 # ─────────────────────────────────────────────
@@ -147,6 +200,7 @@ def add_study_schedule_slot(
         StudySchedule.student_id == current_user.id,
         StudySchedule.day_of_week == req.day_of_week,
         StudySchedule.start_time == req.start_time,
+        StudySchedule.study_mode == req.study_mode,
     ).first()
     if existing:
         existing.end_time = req.end_time
@@ -160,6 +214,7 @@ def add_study_schedule_slot(
         day_of_week=req.day_of_week,
         start_time=req.start_time,
         end_time=req.end_time,
+        study_mode=req.study_mode,
         is_available=True,
     )
     db.add(slot)
@@ -203,12 +258,26 @@ def generate_study_groups(
     Partitions students into balanced groups of 3 to 5 where weak topics are
     covered by strong members, persists to PostgreSQL, and computes peer teaching pairs.
     """
-    # 1. Partition students by curriculum so they only match against peers on the same syllabus.
-    students = db.query(Student).filter(Student.role == "student").all()
-    if len(students) < 2:
+    study_class = None
+    if req.class_id is not None:
+        study_class = db.query(StudyClass).filter(
+            StudyClass.id == req.class_id,
+            StudyClass.teacher_id == current_user.id,
+            StudyClass.is_active.is_(True),
+        ).first()
+        if not study_class:
+            raise HTTPException(status_code=404, detail="Class not found.")
+        students = db.query(Student).join(ClassEnrollment).filter(
+            ClassEnrollment.class_id == study_class.id,
+            Student.role == "student",
+        ).all()
+    else:
+        students = db.query(Student).filter(Student.role == "student").all()
+
+    if len(students) < req.min_size:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least 2 active students are required to form study groups.",
+            detail=f"At least {req.min_size} enrolled students are required to form a group.",
         )
 
     profiles = db.query(StudentProfile).filter(
@@ -231,14 +300,14 @@ def generate_study_groups(
     eligible_cohorts = {
         key: cohort_students
         for key, cohort_students in cohorts.items()
-        if len(cohort_students) >= 2
+        if len(cohort_students) >= req.min_size
     }
     if not eligible_cohorts:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "At least 2 students must share the same course, board/institution, "
-                "and year/semester to form a peer study group."
+                f"At least {req.min_size} students must share the same class and course scope "
+                "to form a peer study group."
             ),
         )
 
@@ -262,8 +331,8 @@ def generate_study_groups(
 
         cohort_groups = form_balanced_study_groups(
             students=student_payloads,
-            min_size=req.min_size or 3,
-            max_size=req.max_size or 5,
+            min_size=req.min_size,
+            max_size=req.max_size,
         )
         cohort_label = " / ".join(
             value for value in (
@@ -280,9 +349,24 @@ def generate_study_groups(
             group_data["group_name"] = f"{cohort_label} - {group_data['group_name']}"
         formed_groups.extend(cohort_groups)
 
+    if not formed_groups:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not enough students in a matching course scope to form groups.",
+        )
+
     if req.reset_existing:
-        # Clear existing active groups only after confirming replacement cohorts exist.
-        old_groups = db.query(StudyGroup).filter(StudyGroup.status == "active").all()
+        old_query = db.query(StudyGroup).filter(
+            StudyGroup.status.in_(["active", "pending"])
+        )
+        if study_class:
+            old_query = old_query.filter(StudyGroup.class_id == study_class.id)
+        else:
+            old_query = old_query.filter(
+                StudyGroup.class_id.is_(None),
+                StudyGroup.created_by == current_user.id,
+            )
+        old_groups = old_query.all()
         for og in old_groups:
             db.delete(og)
         db.commit()
@@ -293,7 +377,9 @@ def generate_study_groups(
     for g_data in formed_groups:
         group_obj = StudyGroup(
             name=g_data["group_name"],
-            status="active",
+            class_id=study_class.id if study_class else None,
+            created_by=current_user.id,
+            status="pending",
             created_at=datetime.datetime.utcnow(),
         )
         db.add(group_obj)
@@ -330,7 +416,7 @@ def generate_study_groups(
         for p in teaching_pairs_raw:
             # Find topic_id if exists
             topic_record = db.query(Topic).filter(Topic.name == p["topic_name"]).first()
-            topic_id = topic_record.id if topic_record else 1
+            topic_id = topic_record.id if topic_record else None
 
             tp_obj = TeachingPair(
                 group_id=group_obj.id,
@@ -363,7 +449,12 @@ def generate_study_groups(
                 StudySchedule.is_available == True
             ).all()
             schedules_by_member[sid] = [
-                {"day_of_week": sl.day_of_week, "start_time": sl.start_time, "end_time": sl.end_time}
+                {
+                    "day_of_week": sl.day_of_week,
+                    "start_time": sl.start_time,
+                    "end_time": sl.end_time,
+                    "study_mode": sl.study_mode,
+                }
                 for sl in sched_slots
             ]
 
@@ -373,6 +464,7 @@ def generate_study_groups(
         results.append(StudyGroupDetailOut(
             id=group_obj.id,
             name=group_obj.name,
+            class_id=group_obj.class_id,
             status=group_obj.status,
             member_count=len(members_summary),
             coverage_rate=cov_metrics["coverage_rate"],
@@ -381,10 +473,36 @@ def generate_study_groups(
             members=members_summary,
             teaching_pairs=teaching_pairs_out,
             common_schedules=common_times[:4], # top 4 sessions
+            progress_summary=_group_progress_summary(db, group_obj, member_ids),
             created_at=group_obj.created_at,
         ))
 
     return results
+
+
+@router.patch("/groups/{group_id}/review")
+def review_study_group(
+    group_id: int,
+    req: GroupReviewRequest,
+    current_teacher: Student = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    group = db.query(StudyGroup).filter(StudyGroup.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Study group not found.")
+    if group.created_by != current_teacher.id:
+        owns_class = group.class_id is not None and db.query(StudyClass.id).filter(
+            StudyClass.id == group.class_id,
+            StudyClass.teacher_id == current_teacher.id,
+        ).first() is not None
+        if not owns_class:
+            raise HTTPException(status_code=404, detail="Study group not found.")
+    if group.status != "pending":
+        raise HTTPException(status_code=409, detail="Only pending groups can be reviewed.")
+
+    group.status = "active" if req.decision == "approve" else "archived"
+    db.commit()
+    return {"id": group.id, "status": group.status}
 
 
 # ─────────────────────────────────────────────
@@ -399,12 +517,21 @@ def list_study_groups(
     """
     List all active study groups with member profiles, coverage rates, and teaching pairs.
     """
-    groups = (
-        db.query(StudyGroup)
-        .filter(StudyGroup.status == "active")
-        .order_by(StudyGroup.name)
-        .all()
-    )
+    query = db.query(StudyGroup)
+    if current_user.role == "teacher":
+        class_ids = db.query(StudyClass.id).filter(
+            StudyClass.teacher_id == current_user.id
+        )
+        query = query.filter(or_(
+            StudyGroup.created_by == current_user.id,
+            StudyGroup.class_id.in_(class_ids),
+        )).filter(StudyGroup.status.in_(["active", "pending"]))
+    else:
+        query = query.join(GroupMember).filter(
+            GroupMember.student_id == current_user.id,
+            StudyGroup.status == "active",
+        )
+    groups = query.order_by(StudyGroup.name).all()
     results: List[StudyGroupDetailOut] = []
 
     for g in groups:
@@ -459,7 +586,12 @@ def list_study_groups(
                 StudySchedule.is_available == True
             ).all()
             schedules_by_member[sid] = [
-                {"day_of_week": sl.day_of_week, "start_time": sl.start_time, "end_time": sl.end_time}
+                {
+                    "day_of_week": sl.day_of_week,
+                    "start_time": sl.start_time,
+                    "end_time": sl.end_time,
+                    "study_mode": sl.study_mode,
+                }
                 for sl in sched_slots
             ]
         common_times = match_study_schedules(schedules_by_member, member_names)
@@ -467,6 +599,7 @@ def list_study_groups(
         results.append(StudyGroupDetailOut(
             id=g.id,
             name=g.name,
+            class_id=g.class_id,
             status=g.status,
             member_count=len(members_summary),
             coverage_rate=round(cov_rate, 2),
@@ -475,6 +608,7 @@ def list_study_groups(
             members=members_summary,
             teaching_pairs=teaching_pairs_out,
             common_schedules=common_times[:4],
+            progress_summary=_group_progress_summary(db, g, member_ids),
             created_at=g.created_at,
         ))
 

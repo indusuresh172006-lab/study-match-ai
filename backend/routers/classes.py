@@ -348,7 +348,7 @@ async def import_class_marks(
             old_count = max(skill.tests_taken or 0, 0)
             total_count = old_count + len(percentages)
             skill.mastery_score = round(
-                (skill.mastery_score * old_count + sum(percentages)) / max(total_count, 1),
+                ((skill.mastery_score or 0.0) * old_count + sum(percentages)) / max(total_count, 1),
                 1,
             )
             skill.tests_taken = total_count

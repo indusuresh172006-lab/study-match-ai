@@ -14,10 +14,16 @@ function StudyGroups({ user }) {
   const [newDay, setNewDay] = useState("Monday");
   const [newStart, setNewStart] = useState("17:00");
   const [newEnd, setNewEnd] = useState("19:00");
+  const [newStudyMode, setNewStudyMode] = useState("online");
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
   const [requestingTeacher, setRequestingTeacher] = useState(false);
   const [teacherRequestMessage, setTeacherRequestMessage] = useState("");
   const [teacherRequestError, setTeacherRequestError] = useState("");
+  const [classCode, setClassCode] = useState("");
+  const [joiningClass, setJoiningClass] = useState(false);
+  const [classJoinMessage, setClassJoinMessage] = useState("");
+  const [classJoinError, setClassJoinError] = useState("");
 
   // Peer-teaching view filter: 'all' | 'tutors_for_me' | 'i_can_teach'
   const [teachingFilter, setTeachingFilter] = useState("all");
@@ -53,16 +59,19 @@ function StudyGroups({ user }) {
   const handleAddSchedule = async (e) => {
     e.preventDefault();
     setSavingSchedule(true);
+    setScheduleError("");
     try {
       await api.post("/api/v1/schedules", {
         day_of_week: newDay,
         start_time: newStart,
         end_time: newEnd,
+        study_mode: newStudyMode,
       });
       await fetchMySchedules();
       await fetchGroupData(); // refresh common slots
     } catch (err) {
       console.error("Error saving schedule:", err);
+      setScheduleError(err.response?.data?.detail || "Could not save your availability slot.");
     } finally {
       setSavingSchedule(false);
     }
@@ -75,6 +84,7 @@ function StudyGroups({ user }) {
       await fetchGroupData();
     } catch (err) {
       console.error("Error deleting schedule:", err);
+      setScheduleError(err.response?.data?.detail || "Could not delete the availability slot.");
     }
   };
 
@@ -103,12 +113,32 @@ function StudyGroups({ user }) {
     }
   };
 
+  const handleJoinClass = async (event) => {
+    event.preventDefault();
+    setJoiningClass(true);
+    setClassJoinMessage("");
+    setClassJoinError("");
+    try {
+      const response = await api.post("/api/v1/classes/join", {
+        join_code: classCode.trim().toUpperCase(),
+      });
+      setClassCode("");
+      setClassJoinMessage(`${response.data.message} Ask your teacher to generate or refresh study groups.`);
+      await fetchGroupData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setClassJoinError(typeof detail === "string" ? detail : "Could not join this class. Check the code and try again.");
+    } finally {
+      setJoiningClass(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner message="Loading your intelligent study group..." />;
   }
 
   if (error) {
-    return <ErrorMessage message={error} onRetry={fetchGroupData} />;
+    return <ErrorMessage error={error} onRetry={fetchGroupData} />;
   }
 
   if (!group) {
@@ -126,6 +156,25 @@ function StudyGroups({ user }) {
           actionText="Take a Topic Quiz"
           onAction={() => (window.location.href = "/quiz")}
         />
+        <section className="teacher-section-card student-class-join">
+          <h3>Join your teacher's class</h3>
+          <p>Enter the join code shared by your teacher to enroll in the correct course and semester.</p>
+          {classJoinMessage && <p className="all-good-msg" role="status">{classJoinMessage}</p>}
+          {classJoinError && <p className="auth-error-msg" role="alert">{classJoinError}</p>}
+          <form onSubmit={handleJoinClass}>
+            <input
+              value={classCode}
+              onChange={(event) => setClassCode(event.target.value.toUpperCase())}
+              maxLength={16}
+              required
+              aria-label="Class join code"
+              placeholder="Enter class join code"
+            />
+            <button className="action-btn-primary" type="submit" disabled={joiningClass}>
+              {joiningClass ? "Joining..." : "Join class"}
+            </button>
+          </form>
+        </section>
         {teacherRequestMessage && <p className="all-good-msg" role="status">{teacherRequestMessage}</p>}
         {teacherRequestError && <p className="auth-error-msg" role="alert">{teacherRequestError}</p>}
         <button
@@ -398,6 +447,7 @@ function StudyGroups({ user }) {
                       <span className="session-hours">
                         {slot.start_time} - {slot.end_time}
                       </span>
+                      <span className="session-mode">{slot.study_mode}</span>
                     </div>
 
                     <div className="session-attendance">
@@ -422,6 +472,7 @@ function StudyGroups({ user }) {
           {/* Right: My Study Availability */}
           <div className="my-availability-panel">
             <h4>🗓️ My Weekly Availability</h4>
+            {scheduleError && <p className="auth-error-msg" role="alert">{scheduleError}</p>}
             <form onSubmit={handleAddSchedule} className="add-schedule-form">
               <div className="schedule-form-row">
                 <select
@@ -454,6 +505,17 @@ function StudyGroups({ user }) {
                   required
                 />
 
+                <select
+                  value={newStudyMode}
+                  onChange={(e) => setNewStudyMode(e.target.value)}
+                  className="search-input"
+                  aria-label="Preferred study mode"
+                >
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                  <option value="either">Either mode</option>
+                </select>
+
                 <button
                   type="submit"
                   className="action-btn-primary btn-sm"
@@ -469,7 +531,7 @@ function StudyGroups({ user }) {
                 mySchedules.map((s) => (
                   <div key={s.id} className="schedule-slot-chip">
                     <span>
-                      {s.day_of_week} ({s.start_time} - {s.end_time})
+                      {s.day_of_week} ({s.start_time} - {s.end_time}) · {s.study_mode}
                     </span>
                     <button
                       className="delete-slot-btn"

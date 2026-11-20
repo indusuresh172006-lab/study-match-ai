@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorMessage from "../components/ErrorMessage";
+import TeacherClassesPanel from "./TeacherClassesPanel";
 
 function TeacherDashboard({ user }) {
   const navigate = useNavigate();
@@ -22,6 +23,10 @@ function TeacherDashboard({ user }) {
   // Guidance Documents (RAG) State
   const [guidanceDocs, setGuidanceDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [revisionQueue, setRevisionQueue] = useState([]);
+  const [revisionQueueLoading, setRevisionQueueLoading] = useState(false);
+  const [guidanceActivity, setGuidanceActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [showUploadDocModal, setShowUploadDocModal] = useState(false);
   const [docTitle, setDocTitle] = useState("");
   const [docType, setDocType] = useState("exam");
@@ -32,12 +37,18 @@ function TeacherDashboard({ user }) {
   const [studyGroups, setStudyGroups] = useState([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [generatingGroups, setGeneratingGroups] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState(null);
+
+  const handleSelectedClassChange = useCallback((classId) => {
+    setSelectedClassId(classId);
+  }, []);
 
   const fetchStats = async () => {
-    setLoading(true);
     setError(null);
     try {
-      const res = await api.get("/teacher/dashboard");
+      const res = await api.get("/teacher/dashboard", {
+        params: selectedClassId ? { class_id: selectedClassId } : {},
+      });
       setStats(res.data);
     } catch (err) {
       console.error(err);
@@ -71,6 +82,32 @@ function TeacherDashboard({ user }) {
     }
   };
 
+  const fetchRevisionQueue = async () => {
+    setRevisionQueueLoading(true);
+    try {
+      const res = await api.get("/api/v1/revision/review-queue");
+      setRevisionQueue(res.data || []);
+    } catch (err) {
+      console.error("Revision notes review queue fetch error:", err);
+      alert(err.response?.data?.detail || "Could not load revision notes awaiting review.");
+    } finally {
+      setRevisionQueueLoading(false);
+    }
+  };
+
+  const fetchGuidanceActivity = async () => {
+    setActivityLoading(true);
+    try {
+      const res = await api.get("/api/v1/guidance/activity");
+      setGuidanceActivity(res.data || []);
+    } catch (err) {
+      console.error("Student guidance activity fetch error:", err);
+      alert(err.response?.data?.detail || "Could not load student guidance activity.");
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   const fetchStudyGroups = async () => {
     setGroupsLoading(true);
     try {
@@ -84,15 +121,20 @@ function TeacherDashboard({ user }) {
   };
 
   const handleRegenerateGroups = async () => {
+    if (!selectedClassId) {
+      alert("Create or select a class before generating groups.");
+      return;
+    }
     setGeneratingGroups(true);
     try {
       const res = await api.post("/api/v1/groups/generate", {
+        class_id: selectedClassId,
         min_size: 3,
         max_size: 5,
         reset_existing: true,
       });
       setStudyGroups(res.data || []);
-      alert("Study groups successfully re-balanced and optimized using Random Forest skill profiles!");
+      alert("Groups generated for teacher review. Approve a group to make it visible to its students.");
     } catch (err) {
       console.error("Group generation error:", err);
       alert(err.response?.data?.detail || "Error generating study groups.");
@@ -101,12 +143,39 @@ function TeacherDashboard({ user }) {
     }
   };
 
+  const handleReviewGroup = async (groupId, decision) => {
+    if (decision === "reject" && !window.confirm("Reject this proposed study group?")) return;
+    try {
+      await api.patch(`/api/v1/groups/${groupId}/review`, { decision });
+      await fetchStudyGroups();
+    } catch (err) {
+      console.error("Study group review error:", err);
+      alert(err.response?.data?.detail || "Could not update the group review.");
+    }
+  };
+
+  const handleReviewRevisionNote = async (noteId, decision) => {
+    if (decision === "reject" && !window.confirm("Reject these AI-generated revision notes?")) return;
+    try {
+      await api.patch(`/api/v1/revision/${noteId}/review`, { decision });
+      await fetchRevisionQueue();
+    } catch (err) {
+      console.error("Revision note review error:", err);
+      alert(err.response?.data?.detail || "Could not update the revision note review.");
+    }
+  };
+
   useEffect(() => {
-    fetchStats();
     fetchCounsellingRequests();
     fetchGuidanceDocs();
+    fetchRevisionQueue();
+    fetchGuidanceActivity();
     fetchStudyGroups();
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [selectedClassId]);
 
   const handleUpdateRequest = async (e) => {
     e.preventDefault();
@@ -138,13 +207,12 @@ function TeacherDashboard({ user }) {
         title: docTitle,
         doc_type: docType,
         content: docContent,
-        is_approved: true,
       });
       setShowUploadDocModal(false);
       setDocTitle("");
       setDocContent("");
       fetchGuidanceDocs();
-      alert("Guidance document uploaded and vector embeddings indexed for AI Chatbot!");
+      alert("Guidance document uploaded and queued for teacher approval before chatbot use.");
     } catch (err) {
       console.error("Upload doc error:", err);
       alert("Failed to upload guidance document.");
@@ -192,6 +260,110 @@ function TeacherDashboard({ user }) {
         </div>
       </div>
 
+      <TeacherClassesPanel onSelectedClassChange={handleSelectedClassChange} />
+
+      <section className="teacher-section-card" style={{ marginBottom: "28px" }}>
+        <div className="card-head-row">
+          <div>
+            <h3>🧠 AI Revision Notes Awaiting Review</h3>
+            <p className="subtext">
+              Review generated notes and the student teaching outline before sharing them with learners.
+            </p>
+          </div>
+          <button className="action-btn-secondary btn-sm" onClick={fetchRevisionQueue}>
+            Refresh Queue
+          </button>
+        </div>
+        {revisionQueueLoading ? (
+          <p>Loading revision notes...</p>
+        ) : revisionQueue.length === 0 ? (
+          <p className="all-good-msg">No revision notes are waiting for review.</p>
+        ) : (
+          <div className="class-topics-table-wrapper">
+            <table className="teacher-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Subject / Topic</th>
+                  <th>Teaching outline</th>
+                  <th>Teacher review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {revisionQueue.map((note) => (
+                  <tr key={note.id}>
+                    <td>{note.student_name}</td>
+                    <td>{note.subject_name} / {note.topic_name}</td>
+                    <td style={{ maxWidth: "380px" }}>
+                      <strong>{note.content?.overview}</strong>
+                      <p className="subtext">{note.content?.teaching_outline}</p>
+                    </td>
+                    <td>
+                      <div className="teacher-review-actions">
+                        <button
+                          className="action-btn-success btn-sm"
+                          onClick={() => handleReviewRevisionNote(note.id, "approve")}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="action-btn-secondary btn-sm"
+                          onClick={() => handleReviewRevisionNote(note.id, "reject")}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="teacher-section-card" style={{ marginBottom: "28px" }}>
+        <div className="card-head-row">
+          <div>
+            <h3>🧭 Student Course & Exam Exploration</h3>
+            <p className="subtext">
+              Recent course details and entrance-exam preparation pages opened by students.
+            </p>
+          </div>
+          <button className="action-btn-secondary btn-sm" onClick={fetchGuidanceActivity}>
+            Refresh Activity
+          </button>
+        </div>
+        {activityLoading ? (
+          <p>Loading student activity...</p>
+        ) : guidanceActivity.length === 0 ? (
+          <p className="subtext">No course or exam details have been explored yet.</p>
+        ) : (
+          <div className="class-topics-table-wrapper">
+            <table className="teacher-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Explored</th>
+                  <th>Item</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {guidanceActivity.map((activity) => (
+                  <tr key={activity.id}>
+                    <td>{activity.student_name}</td>
+                    <td>{activity.activity_type === "exam" ? "Entrance exam" : "Course"}</td>
+                    <td>{activity.title}</td>
+                    <td>{new Date(activity.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* KPI Stats */}
       <section className="kpi-grid">
         <div className="kpi-card info">
@@ -208,7 +380,7 @@ function TeacherDashboard({ user }) {
           <div className="kpi-details">
             <span className="kpi-num">{stats?.at_risk_students?.length || 0}</span>
             <span className="kpi-label">Students Needing Support</span>
-            <span className="kpi-subtext">Have 1+ weak topics</span>
+            <span className="kpi-subtext">Weak areas or declining quiz scores</span>
           </div>
         </div>
 
@@ -321,9 +493,9 @@ function TeacherDashboard({ user }) {
           <button
             className="action-btn-primary btn-sm"
             onClick={handleRegenerateGroups}
-            disabled={generatingGroups}
+            disabled={generatingGroups || !selectedClassId}
           >
-            {generatingGroups ? "Optimizing Groups..." : "⚡ Re-Run Intelligent Grouping"}
+            {generatingGroups ? "Optimizing Groups..." : "⚡ Generate Groups for Selected Class"}
           </button>
         </div>
 
@@ -339,11 +511,14 @@ function TeacherDashboard({ user }) {
               <thead>
                 <tr>
                   <th>Group Name</th>
+                  <th>Review status</th>
                   <th>Members (3-5)</th>
                   <th>Weak-Topic Coverage</th>
                   <th>Teaching Pairs</th>
                   <th>Uncovered Topics</th>
                   <th>Schedule Matches</th>
+                  <th>Follow-up progress</th>
+                  <th>Teacher review</th>
                 </tr>
               </thead>
               <tbody>
@@ -351,6 +526,11 @@ function TeacherDashboard({ user }) {
                   <tr key={grp.id}>
                     <td>
                       <strong>{grp.name}</strong>
+                    </td>
+                    <td>
+                      <span className={`status-badge status-${grp.status}`}>
+                        {grp.status.toUpperCase()}
+                      </span>
                     </td>
                     <td>
                       <div className="pills-wrap">
@@ -390,6 +570,40 @@ function TeacherDashboard({ user }) {
                       <span style={{ fontSize: "12px", color: "#475569" }}>
                         📅 {grp.common_schedules.length} overlap slots
                       </span>
+                    </td>
+                    <td>
+                      {grp.progress_summary?.change_points === null ||
+                      grp.progress_summary?.change_points === undefined ? (
+                        <span className="subtext">No comparable follow-up quizzes</span>
+                      ) : (
+                        <span style={{ color: grp.progress_summary.change_points >= 0 ? "#15803d" : "#b91c1c" }}>
+                          {grp.progress_summary.change_points > 0 ? "+" : ""}
+                          {grp.progress_summary.change_points} pts
+                          <small>
+                            {" "}({grp.progress_summary.baseline_accuracy}% → {grp.progress_summary.follow_up_accuracy}%)
+                          </small>
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {grp.status === "pending" ? (
+                        <div className="teacher-review-actions">
+                          <button
+                            className="action-btn-success btn-sm"
+                            onClick={() => handleReviewGroup(grp.id, "approve")}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="action-btn-secondary btn-sm"
+                            onClick={() => handleReviewGroup(grp.id, "reject")}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="subtext">Reviewed</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -532,7 +746,7 @@ function TeacherDashboard({ user }) {
           <div className="card-head-row">
             <div>
               <h3>🚨 Students Requiring Personal Intervention</h3>
-              <p className="subtext">Identified via adaptive mock test marks and skill analytics</p>
+              <p className="subtext">Flags weak topics and repeated downward trends in recent topic quizzes.</p>
             </div>
           </div>
 
@@ -553,9 +767,17 @@ function TeacherDashboard({ user }) {
                       </div>
                     </div>
                     <span className="weak-flag">
-                      {st.weak_topics_count} Weak Topics
+                      {st.weak_topics_count > 0
+                        ? `${st.weak_topics_count} Weak Topics`
+                        : "Progress alert"}
                     </span>
                   </div>
+
+                  {st.risk_reasons?.length > 0 && (
+                    <p className="subtext" style={{ margin: "8px 0" }}>
+                      {st.risk_reasons.join(" · ")}
+                    </p>
+                  )}
 
                   <div className="student-weak-pills">
                     {st.weak_topics.map((t, i) => (
@@ -569,13 +791,10 @@ function TeacherDashboard({ user }) {
                     <span>Overall Mastery: <strong>{st.average_mastery}%</strong></span>
                     <button
                       className="contact-btn"
-                      onClick={() =>
-                        alert(
-                          `Intervention memo created for ${st.name}. StudyMatch AI peer group matcher will pair ${st.name} with a strong peer in: ${st.weak_topics.join(", ")}.`
-                        )
-                      }
+                      onClick={handleRegenerateGroups}
+                      disabled={!selectedClassId || generatingGroups}
                     >
-                      🤝 Pair in Peer Study Group
+                      ⚡ Rebuild Class Groups
                     </button>
                   </div>
                 </div>

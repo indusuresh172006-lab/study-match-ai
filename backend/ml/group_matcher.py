@@ -72,12 +72,7 @@ def form_balanced_study_groups(
         return []
 
     if n_students < min_size:
-        # If fewer than min_size, keep all in one small group
-        return [{
-            "group_name": "Study Group 1",
-            "members": students,
-            "coverage_metrics": calculate_group_coverage(students),
-        }]
+        return []
 
     # Determine optimal number of groups so that every group has size in [min_size, max_size]
     # For instance: 6 -> two groups of 3; 7 -> 4 + 3; 8 -> 4 + 4; 9 -> 5 + 4; 10 -> 5 + 5 or 3+3+4.
@@ -220,35 +215,88 @@ def match_study_schedules(
     if not members_schedules:
         return []
 
-    # Map of (day, start, end) -> list of available student_ids
-    slot_attendees: Dict[Tuple[str, str, str], Set[int]] = {}
-
-    for s_id, slots in members_schedules.items():
-        for slot in slots:
-            key = (slot["day_of_week"], slot["start_time"], slot["end_time"])
-            if key not in slot_attendees:
-                slot_attendees[key] = set()
-            slot_attendees[key].add(s_id)
-
     total_members = len(members_schedules)
     results = []
 
-    for (day, start, end), attendees in slot_attendees.items():
-        count = len(attendees)
-        match_rate = round((count / max(total_members, 1)) * 100.0, 1)
+    def to_minutes(value: str) -> int:
+        hour_text, minute_text = value.split(":", 1)
+        hour, minute = int(hour_text), int(minute_text)
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError(f"Invalid study time: {value}")
+        return hour * 60 + minute
 
-        names = [member_names.get(sid, f"Student {sid}") for sid in attendees]
-        results.append({
-            "day_of_week": day,
-            "start_time": start,
-            "end_time": end,
-            "available_count": count,
-            "total_members": total_members,
-            "match_percentage": match_rate,
-            "available_students": names,
-            "is_unanimous": (count == total_members),
-        })
+    def format_time(value: int) -> str:
+        return f"{value // 60:02d}:{value % 60:02d}"
+
+    days = sorted({
+        slot["day_of_week"]
+        for slots in members_schedules.values()
+        for slot in slots
+    })
+    for day in days:
+        for mode in ("online", "offline"):
+            available_by_student = {}
+            boundaries = set()
+            for student_id, slots in members_schedules.items():
+                matching_slots = []
+                for slot in slots:
+                    slot_mode = slot.get("study_mode", "online").lower()
+                    if slot["day_of_week"] != day or slot_mode not in (mode, "either"):
+                        continue
+                    start = to_minutes(slot["start_time"])
+                    end = to_minutes(slot["end_time"])
+                    if end <= start:
+                        continue
+                    matching_slots.append((start, end))
+                    boundaries.update((start, end))
+                available_by_student[student_id] = matching_slots
+
+            ordered_boundaries = sorted(boundaries)
+            for start, end in zip(ordered_boundaries, ordered_boundaries[1:]):
+                if end <= start:
+                    continue
+                attendees = {
+                    student_id
+                    for student_id, slots in available_by_student.items()
+                    if any(slot_start <= start and slot_end >= end for slot_start, slot_end in slots)
+                }
+                if not attendees:
+                    continue
+
+                count = len(attendees)
+                names = sorted(
+                    member_names.get(student_id, f"Student {student_id}")
+                    for student_id in attendees
+                )
+                match_rate = round((count / max(total_members, 1)) * 100.0, 1)
+                if (
+                    results
+                    and results[-1]["day_of_week"] == day
+                    and results[-1]["study_mode"] == mode
+                    and results[-1]["end_time"] == format_time(start)
+                    and results[-1]["available_students"] == names
+                ):
+                    results[-1]["end_time"] = format_time(end)
+                    continue
+                results.append({
+                    "day_of_week": day,
+                    "start_time": format_time(start),
+                    "end_time": format_time(end),
+                    "study_mode": mode,
+                    "available_count": count,
+                    "total_members": total_members,
+                    "match_percentage": match_rate,
+                    "available_students": names,
+                    "is_unanimous": (count == total_members),
+                })
 
     # Sort primarily by attendance count descending
-    results.sort(key=lambda r: (r["available_count"], r["match_percentage"]), reverse=True)
+    results.sort(
+        key=lambda r: (
+            r["available_count"],
+            r["match_percentage"],
+            to_minutes(r["end_time"]) - to_minutes(r["start_time"]),
+        ),
+        reverse=True,
+    )
     return results

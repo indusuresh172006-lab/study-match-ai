@@ -5,6 +5,7 @@ scholarships, study abroad, checklist, deadlines, questionnaire,
 counselling requests.
 """
 import os
+import re
 from typing import List, Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -19,7 +20,7 @@ from models import (
     RoadmapItem, EntranceExam, College, Course, Scholarship,
     StudyAbroadInfo, ApplicationChecklistItem, DeadlineReminder,
     QuestionnaireQuestion, StudentQuestionnaireAnswer, CounsellingRequest,
-    GuidanceCourse
+    GuidanceCourse, GuidanceActivity
 )
 
 router = APIRouter()
@@ -28,6 +29,11 @@ class CounsellingRequestCreate(BaseModel):
     request_type: Literal["higher_studies", "study_support"] = "higher_studies"
     message: str = Field(..., min_length=1)
     preferred_mode: str = "Online"
+
+
+class GuidanceActivityCreate(BaseModel):
+    activity_type: Literal["course", "exam"]
+    entity_id: int = Field(..., ge=1)
 
 
 # ─────────────────────────────────────────────
@@ -226,6 +232,55 @@ def _course_dict(c: Course, match_score: float = None, match_reason: str = None)
     return d
 
 
+def _diploma_branch(profile: Optional[StudentProfile]) -> Optional[str]:
+    if not profile:
+        return None
+
+    qualification = " ".join(
+        value or ""
+        for value in (profile.course, profile.department, profile.stream)
+    ).casefold()
+    if not re.search(r"\b(diploma|polytechnic)\b", qualification):
+        return None
+
+    if (
+        any(term in qualification for term in ("computer", "information technology", "software"))
+        or re.search(r"\bit\b", qualification)
+    ):
+        return "computer"
+    if any(term in qualification for term in ("electronics", "communication", "telecommunication")):
+        return "electronics"
+    if "electrical" in qualification:
+        return "electrical"
+    if "civil" in qualification:
+        return "civil"
+    if "mechanical" in qualification:
+        return "mechanical"
+    return "unknown"
+
+
+def _filter_courses_for_diploma(courses: List[Course], profile: Optional[StudentProfile]) -> List[Course]:
+    branch = _diploma_branch(profile)
+    if branch is None:
+        return courses
+    if branch == "unknown":
+        return []
+
+    branch_terms = {
+        "computer": ("computer", "information technology", "software"),
+        "electronics": ("electronics", "communication", "telecommunication"),
+        "electrical": ("electrical",),
+        "civil": ("civil",),
+        "mechanical": ("mechanical",),
+    }[branch]
+    return [
+        course for course in courses
+        if "lateral entry" in (course.title or "").casefold()
+        and "diploma" in (course.eligibility or "").casefold()
+        and any(term in (course.title or "").casefold() for term in branch_terms)
+    ]
+
+
 @router.get("/courses/recommend")
 def recommend_courses(
     db: Session = Depends(get_db),
@@ -239,6 +294,10 @@ def recommend_courses(
       3. InterestProfile tags (from original questionnaire)
     Returns top-10 courses with match_score and match_reason.
     """
+    profile = db.query(StudentProfile).filter(
+        StudentProfile.student_id == current_user.id
+    ).first()
+
     # Build skill-based stream weights
     skills = db.query(SkillProfile).filter(SkillProfile.student_id == current_user.id).all()
     skill_weights: dict[str, float] = {}
@@ -285,13 +344,19 @@ def recommend_courses(
     for s in all_streams:
         combined[s] = 0.6 * skill_weights.get(s, 0) + 0.4 * qa_weights.get(s, 0)
 
-    # Fallback: if no data, return all courses with equal weight
+    courses = _filter_courses_for_diploma(db.query(Course).all(), profile)
+    diploma_branch = _diploma_branch(profile)
+
+    # Fallback: if no data, return eligible courses with equal weight.
     if not combined:
-        courses = db.query(Course).limit(10).all()
-        return [_course_dict(c, 50.0, "Explore all career options") for c in courses]
+        reason = (
+            "Possible lateral-entry pathway; verify the current admission rules and branch eligibility."
+            if diploma_branch
+            else "Explore all career options"
+        )
+        return [_course_dict(c, 50.0, reason) for c in courses]
 
     # Score every course
-    courses = db.query(Course).all()
     scored = []
     max_score = max(combined.values()) if combined else 1
     for course in courses:
@@ -315,6 +380,8 @@ def recommend_courses(
         else:
             reason = "Broad career option worth exploring"
 
+        if diploma_branch:
+            reason = "Possible lateral-entry pathway; verify the current admission rules and branch eligibility."
         scored.append((pct, course, reason))
 
     scored.sort(key=lambda x: x[0], reverse=True)
@@ -622,6 +689,54 @@ def dismiss_reminder(
     r.is_dismissed = True
     db.commit()
     return {"message": "Dismissed"}
+
+
+@router.post("/activity", status_code=status.HTTP_201_CREATED)
+def track_guidance_activity(
+    payload: GuidanceActivityCreate,
+    db: Session = Depends(get_db),
+    current_user: Student = Depends(get_current_user),
+):
+    if payload.activity_type == "course":
+        item = db.query(Course).filter(Course.id == payload.entity_id).first()
+        title = item.title if item else None
+    else:
+        item = db.query(EntranceExam).filter(EntranceExam.id == payload.entity_id).first()
+        title = item.name if item else None
+    if not item:
+        raise HTTPException(status_code=404, detail="Guidance item not found.")
+
+    activity = GuidanceActivity(
+        student_id=current_user.id,
+        activity_type=payload.activity_type,
+        entity_id=item.id,
+        title=title,
+    )
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+    return {"id": activity.id, "message": "Guidance activity recorded."}
+
+
+@router.get("/activity")
+def list_guidance_activity(
+    db: Session = Depends(get_db),
+    current_teacher: Student = Depends(require_teacher),
+):
+    rows = db.query(GuidanceActivity, Student).join(
+        Student, Student.id == GuidanceActivity.student_id
+    ).order_by(GuidanceActivity.created_at.desc()).limit(100).all()
+    return [
+        {
+            "id": activity.id,
+            "student_id": student.id,
+            "student_name": student.name,
+            "activity_type": activity.activity_type,
+            "title": activity.title,
+            "created_at": activity.created_at.isoformat(),
+        }
+        for activity, student in rows
+    ]
 
 
 # ─────────────────────────────────────────────

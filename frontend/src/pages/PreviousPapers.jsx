@@ -40,12 +40,20 @@ function PreviousPapers({ user }) {
   const [uploadYear, setUploadYear] = useState(2024);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadTopicTags, setUploadTopicTags] = useState("");
-  const [uploadFilePath, setUploadFilePath] = useState("");
-  const [uploadAnswerKey, setUploadAnswerKey] = useState("");
+  const [uploadPaperFile, setUploadPaperFile] = useState(null);
+  const [uploadAnswerKeyFile, setUploadAnswerKeyFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   // PDF Preview Modal
   const [previewPaper, setPreviewPaper] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const fetchPapers = async () => {
     setLoading(true);
@@ -162,33 +170,84 @@ function PreviousPapers({ user }) {
   // Teacher: Upload Paper
   const handleUploadPaper = async (e) => {
     e.preventDefault();
+    if (!uploadPaperFile) {
+      setUploadError("Choose the question paper PDF to upload.");
+      return;
+    }
     setUploading(true);
+    setUploadError("");
     try {
-      const tagsList = uploadTopicTags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
+      const payload = new FormData();
+      payload.append("exam_name", uploadExamName);
+      payload.append("subject", uploadSubject);
+      payload.append("year", String(uploadYear));
+      payload.append("title", uploadTitle);
+      payload.append("topic_tags", uploadTopicTags);
+      payload.append("paper_file", uploadPaperFile);
+      if (uploadAnswerKeyFile) payload.append("answer_key_file", uploadAnswerKeyFile);
 
-      await api.post("/api/v1/papers", {
-        exam_name: uploadExamName,
-        subject: uploadSubject,
-        year: Number(uploadYear),
-        title: uploadTitle,
-        topic_tags: tagsList,
-        file_path: uploadFilePath || `/papers/${uploadExamName.toLowerCase().replace(" ", "_")}_${uploadYear}.pdf`,
-        answer_key_file: uploadAnswerKey || null,
+      await api.post("/api/v1/papers/upload", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       setShowUploadModal(false);
       setUploadTitle("");
       setUploadTopicTags("");
+      setUploadPaperFile(null);
+      setUploadAnswerKeyFile(null);
       fetchPapers();
-      alert("Paper submitted successfully for class library!");
+      alert("Paper uploaded and submitted for teacher approval.");
     } catch (err) {
       console.error("Upload paper error:", err);
-      alert("Failed to upload paper metadata.");
+      const detail = err.response?.data?.detail;
+      setUploadError(typeof detail === "string" ? detail : "Failed to upload the paper PDF.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleOpenPreview = async (paper) => {
+    setPreviewPaper(paper);
+    setPreviewUrl("");
+    if (/^https?:\/\//i.test(paper.file_path || "")) {
+      setPreviewUrl(paper.file_path);
+      return;
+    }
+    try {
+      const response = await api.get(`/api/v1/papers/${paper.id}/file`, {
+        responseType: "blob",
+      });
+      setPreviewUrl(URL.createObjectURL(response.data));
+    } catch (err) {
+      console.error("Paper preview error:", err);
+      setPreviewPaper(null);
+      alert(err.response?.data?.detail || "Could not load this paper PDF.");
+    }
+  };
+
+  const handleDownloadPaper = async (paper, kind = "paper") => {
+    const storedPath = kind === "paper" ? paper.file_path : paper.answer_key_file;
+    if (!storedPath) return;
+    if (/^https?:\/\//i.test(storedPath)) {
+      window.open(storedPath, "_blank", "noopener,noreferrer");
+      return;
+    }
+    try {
+      const response = await api.get(`/api/v1/papers/${paper.id}/file`, {
+        params: { kind },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${paper.title}${kind === "answer_key" ? "-answer-key" : ""}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Paper download error:", err);
+      alert(err.response?.data?.detail || "Could not download this PDF.");
     }
   };
 
@@ -329,16 +388,14 @@ function PreviousPapers({ user }) {
                   <div className="card-bottom-actions">
                     <button
                       className="action-btn-secondary btn-sm"
-                      onClick={() => setPreviewPaper(paper)}
+                      onClick={() => handleOpenPreview(paper)}
                     >
                       📄 View PDF
                     </button>
                     {paper.answer_key_file && (
                       <button
                         className="action-btn-secondary btn-sm"
-                        onClick={() =>
-                          alert(`Answer Key & Solutions available for ${paper.title} at ${paper.answer_key_file}`)
-                        }
+                        onClick={() => handleDownloadPaper(paper, "answer_key")}
                       >
                         🔑 Key
                       </button>
@@ -657,28 +714,24 @@ function PreviousPapers({ user }) {
               </div>
 
               <div className="form-group" style={{ marginBottom: "12px" }}>
-                <label>Paper Document Path / URL (PDF):</label>
+                <label>Question Paper PDF (max 20 MB):</label>
                 <input
-                  type="text"
-                  placeholder="/papers/jee_main_2024_maths.pdf"
-                  value={uploadFilePath}
-                  onChange={(e) => setUploadFilePath(e.target.value)}
-                  className="search-input"
-                  style={{ width: "100%", marginTop: "4px" }}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => setUploadPaperFile(e.target.files?.[0] || null)}
+                  required
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: "16px" }}>
-                <label>Answer Key / Solution Path (Optional):</label>
+                <label>Answer Key / Solution PDF (Optional, max 20 MB):</label>
                 <input
-                  type="text"
-                  placeholder="/papers/jee_main_2024_maths_ans.pdf"
-                  value={uploadAnswerKey}
-                  onChange={(e) => setUploadAnswerKey(e.target.value)}
-                  className="search-input"
-                  style={{ width: "100%", marginTop: "4px" }}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => setUploadAnswerKeyFile(e.target.files?.[0] || null)}
                 />
               </div>
+              {uploadError && <p className="auth-error-msg" role="alert">{uploadError}</p>}
 
               <div className="modal-footer">
                 <button
@@ -707,16 +760,24 @@ function PreviousPapers({ user }) {
           <div className="modal-dialog modal-md">
             <div className="modal-header">
               <h3>📄 {previewPaper.title}</h3>
-              <button className="modal-close" onClick={() => setPreviewPaper(null)}>
+              <button className="modal-close" onClick={() => {
+                setPreviewPaper(null);
+                setPreviewUrl("");
+              }}>
                 &times;
               </button>
             </div>
             <div className="modal-body" style={{ textAlign: "center", padding: "30px 20px" }}>
-              <div style={{ fontSize: "48px", marginBottom: "12px" }}>📑</div>
               <h4>{previewPaper.exam_name} {previewPaper.year} — {previewPaper.subject}</h4>
-              <p style={{ color: "var(--text-muted)", marginTop: "6px" }}>
-                File Path: <code>{previewPaper.file_path}</code>
-              </p>
+              {previewUrl ? (
+                <iframe
+                  title={`${previewPaper.title} PDF preview`}
+                  src={previewUrl}
+                  style={{ width: "100%", height: "60vh", border: "1px solid var(--border-color)" }}
+                />
+              ) : (
+                <p>Loading PDF preview...</p>
+              )}
 
               {previewPaper.topic_tags && (
                 <div className="pills-wrap" style={{ justifyContent: "center", margin: "16px 0" }}>
@@ -731,9 +792,7 @@ function PreviousPapers({ user }) {
               <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "20px" }}>
                 <button
                   className="action-btn-primary"
-                  onClick={() => {
-                    alert(`Opening download link for: ${previewPaper.file_path}`);
-                  }}
+                  onClick={() => handleDownloadPaper(previewPaper)}
                 >
                   ⬇️ Download PDF Paper
                 </button>
@@ -741,6 +800,7 @@ function PreviousPapers({ user }) {
                   className="action-btn-secondary"
                   onClick={() => {
                     setPreviewPaper(null);
+                    setPreviewUrl("");
                     handleStartTimedExam(previewPaper.id);
                   }}
                 >

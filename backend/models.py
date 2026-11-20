@@ -553,6 +553,7 @@ class Test(Base):
     total_marks = Column(Integer, default=20)
     is_adaptive = Column(Boolean, default=False)
     is_published = Column(Boolean, default=True)
+    approval_status = Column(String(20), default="pending", nullable=False)
     created_by = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -664,11 +665,46 @@ class GuidanceDocument(Base):
     content = Column(Text, nullable=False)
     file_path = Column(String(255), nullable=True)
     uploaded_by = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
-    is_approved = Column(Boolean, default=True) # Teacher review step
+    is_approved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     uploader = relationship("Student")
     embeddings = relationship("DocumentEmbedding", back_populates="document", cascade="all, delete-orphan")
+
+
+class RevisionNote(Base):
+    __tablename__ = "revision_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    subject_name = Column(String(100), nullable=False)
+    topic_name = Column(String(100), nullable=False)
+    content = Column(JSON, nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    reviewed_by = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    student = relationship("Student", foreign_keys=[student_id])
+    reviewer = relationship("Student", foreign_keys=[reviewed_by])
+
+
+class GuidanceActivity(Base):
+    __tablename__ = "guidance_activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    activity_type = Column(String(20), nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    title = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    student = relationship("Student")
+
+    __table_args__ = (
+        Index("ix_guidance_activities_created_at", "created_at"),
+        Index("ix_guidance_activities_student_id", "student_id"),
+    )
 
 
 class DocumentEmbedding(Base):

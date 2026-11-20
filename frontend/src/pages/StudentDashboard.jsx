@@ -439,11 +439,20 @@ function StudentDashboard({ user }) {
             <div className="modal-body-scrollable">
               {loadingRevision ? (
                 <LoadingSpinner message="Generating pedagogical revision notes with Gemini..." />
-              ) : revisionNotes ? (
+              ) : revisionNotes?.status === "pending" ? (
+                <p className="scope-feedback" role="status">
+                  {revisionNotes.message} Your teacher will review the notes before they appear here. Select AI Notes again after approval to view them.
+                </p>
+              ) : revisionNotes?.status === "approved" ? (
                 <div>
                   <div className="revision-overview-box" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "14px", borderRadius: "8px", marginBottom: "16px" }}>
                     <h4 style={{ color: "#166534", margin: "0 0 6px 0" }}>📖 Plain-Language Explanation</h4>
                     <p style={{ margin: 0, color: "#1e293b", fontSize: "13.5px" }}>{revisionNotes.overview}</p>
+                  </div>
+
+                  <div className="revision-block" style={{ marginBottom: "16px" }}>
+                    <h4>🧑‍🏫 Teaching Outline</h4>
+                    <p>{revisionNotes.teaching_outline}</p>
                   </div>
 
                   <div className="revision-block" style={{ marginBottom: "16px" }}>

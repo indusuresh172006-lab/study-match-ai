@@ -1,7 +1,7 @@
 """course-scoped syllabi and study support requests
 
 Revision ID: 96a731d4c30f
-Revises: 4caebe829205
+Revises: 6f2c1a8d4e90
 Create Date: 2026-11-20
 """
 from typing import Sequence, Union
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 revision: str = "96a731d4c30f"
-down_revision: Union[str, Sequence[str], None] = "4caebe829205"
+down_revision: Union[str, Sequence[str], None] = "6f2c1a8d4e90"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

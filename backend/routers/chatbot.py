@@ -12,22 +12,25 @@ RAG pipeline:
 Fallback: if Gemini API call fails, a helpful static response is returned.
 """
 import os
-import json
 import math
 import datetime
+import re
+import logging
 import requests
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database import get_db
 from auth import get_current_user, require_teacher
 from models import (
     Student, SkillProfile, ChatSession, ChatMessage,
-    GuidanceDocument, DocumentEmbedding
+    GuidanceDocument, DocumentEmbedding, QuestionPaper, Test,
+    StudyGroup, GroupMember
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
@@ -144,11 +147,11 @@ def _retrieve_chunks(query: str, db: Session, top_k: int = 5) -> List[dict]:
     return results
 
 
-def _call_gemini(prompt: str) -> str:
+def _call_gemini(prompt: str, fallback_response: Optional[str] = None) -> str:
     """Call Google Gemini API using current models with intelligent fallback."""
     api_key = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY)
     if not api_key:
-        return (
+        return fallback_response or (
             "Hello! I am your StudyMatch Assistant. AI live generation is currently "
             "running in offline guidance mode because an API key is not configured. "
             "Please explore the verified course roadmaps, exams, and scholarship modules above!"
@@ -167,7 +170,6 @@ def _call_gemini(prompt: str) -> str:
         "gemini-3.5-flash",
     ]
 
-    last_error = None
     for model in models_to_try:
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
@@ -179,13 +181,13 @@ def _call_gemini(prompt: str) -> str:
                     parts = candidates[0].get("content", {}).get("parts", [])
                     return "".join(p.get("text", "") for p in parts)
             else:
-                last_error = f"Model {model} returned status {resp.status_code}"
-        except Exception as exc:
-            last_error = str(exc)
+                logger.warning("Chatbot request to %s returned status %s", model, resp.status_code)
+        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+            logger.warning("Chatbot request failed with %s: %s", model, exc)
             continue
 
     # Clean, helpful user-facing response if all live model requests encounter issues
-    return (
+    return fallback_response or (
         "Hello! I am here to help you navigate courses, entrance exams, and your personalized study plan. "
         "I was unable to establish a live connection to the AI generation service right now. "
         "You can check our verified guidance documents, exam guides, and mock tests in the meantime, or try asking again in a moment!"
@@ -198,6 +200,8 @@ def _build_prompt(
     skill_profile: List,
     student_name: str,
     history: List,
+    resources: List[Dict[str, Any]],
+    group_context: Optional[str],
 ) -> str:
     """Build the full RAG prompt for Gemini."""
     # Recent history (last 6 messages)
@@ -225,6 +229,12 @@ def _build_prompt(
     else:
         retrieved_text = "\n(No specific guidance documents found for this query — answer from general knowledge.)\n"
 
+    resources_text = "\n".join(
+        f"- {item['kind']}: {item['title']} ({item['subject']}, {item.get('year') or item.get('exam_name') or 'available'}); "
+        f"topics: {', '.join(item.get('topic_tags', [])) or 'not tagged'}; link: {item['link']}"
+        for item in resources
+    ) or "No matching approved tests or papers were found."
+
     prompt = f"""You are StudyMatch Assistant, a friendly and knowledgeable academic mentor for Indian students.
 You help students with higher education guidance, course/exam queries, study tips, and understanding their own skill profile.
 
@@ -233,6 +243,12 @@ SKILL PROFILE:
 {skill_summary or 'No skill data yet.'}
 
 {retrieved_text}
+
+ACTIVE STUDY GROUP:
+{group_context or 'No active study group assigned.'}
+
+APPROVED STUDY RESOURCES:
+{resources_text}
 
 CONVERSATION HISTORY:
 {history_text}
@@ -244,10 +260,130 @@ Instructions:
 - If the retrieved content is relevant, use it and cite the document title.
 - If nothing relevant was found, say so and answer from general knowledge.
 - If asked about weak topics, give specific, actionable study advice.
+- If asked to find question papers or mock tests, recommend only matching resources from the approved list above.
 - Never fabricate specific dates, fees or college rankings — advise verification.
 - Respond in the same language as the student's question.
 """
     return prompt
+
+
+def _find_study_resources(user_message: str, db: Session) -> List[Dict[str, Any]]:
+    query = user_message.casefold()
+    if not any(term in query for term in ("paper", "question", "mock test", "practice test", "test")):
+        return []
+
+    terms = {
+        term for term in re.findall(r"[a-z0-9]+", query)
+        if len(term) > 2 and not term.isdigit() and term not in {
+            "paper", "papers", "question", "questions", "mock", "test", "tests",
+            "last", "year", "years", "give", "find", "show", "for", "the",
+            "one", "two", "three", "four", "five", "exam", "exams", "previous",
+            "past", "practice", "from", "available", "are", "can", "me",
+        }
+    }
+    year_span_match = re.search(r"last\s+(\d+|one|two|three|four|five)\s+years?", query)
+    year_words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+    year_span = (
+        int(year_span_match.group(1))
+        if year_span_match and year_span_match.group(1).isdigit()
+        else year_words.get(year_span_match.group(1), 0) if year_span_match else 0
+    )
+    requested_years = {
+        int(year) for year in re.findall(r"\b(?:19|20)\d{2}\b", query)
+    }
+    min_year = datetime.date.today().year - year_span + 1 if year_span else None
+    resources = []
+
+    papers = db.query(QuestionPaper).filter(
+        QuestionPaper.approval_status == "approved",
+    ).order_by(QuestionPaper.year.desc()).limit(50).all()
+    for paper in papers:
+        topic_tags = paper.topic_tags if isinstance(paper.topic_tags, list) else []
+        haystack = " ".join([paper.title, paper.subject, paper.exam_name, *topic_tags]).casefold()
+        matches = sum(term in haystack for term in terms)
+        if (terms and not matches) or (min_year and paper.year < min_year):
+            continue
+        if requested_years and paper.year not in requested_years:
+            continue
+        resources.append({
+            "kind": "Question paper",
+            "title": paper.title,
+            "subject": paper.subject,
+            "exam_name": paper.exam_name,
+            "year": paper.year,
+            "topic_tags": topic_tags,
+            "link": "/papers",
+            "match_score": matches,
+        })
+
+    tests = db.query(Test).filter(
+        Test.is_published.is_(True),
+        Test.approval_status == "approved",
+    ).order_by(Test.created_at.desc()).limit(50).all()
+    for test in tests:
+        if requested_years:
+            continue
+        haystack = " ".join((test.title, test.subject, test.exam_name or "")).casefold()
+        matches = sum(term in haystack for term in terms)
+        if terms and not matches:
+            continue
+        resources.append({
+            "kind": "Mock test",
+            "title": test.title,
+            "subject": test.subject,
+            "exam_name": test.exam_name,
+            "topic_tags": [],
+            "link": "/mock-tests",
+            "match_score": matches,
+        })
+
+    resources.sort(
+        key=lambda item: (item["match_score"], item.get("year") or 0),
+        reverse=True,
+    )
+    return resources[:8]
+
+
+def _get_active_group_context(student_id: int, db: Session) -> Optional[str]:
+    membership = db.query(GroupMember).join(StudyGroup).filter(
+        GroupMember.student_id == student_id,
+        StudyGroup.status == "active",
+    ).first()
+    if not membership:
+        return None
+
+    group = membership.group
+    classmates = sum(
+        1 for member in group.members
+        if member.student_id != student_id
+    )
+    pairs = [
+        f"you are {'tutoring' if pair.tutor_id == student_id else 'learning'} "
+        f"{pair.topic.name if pair.topic else 'a topic'}"
+        for pair in group.teaching_pairs
+        if student_id in (pair.tutor_id, pair.learner_id)
+    ]
+    return (
+        f"Active study group; {classmates} other group member(s); "
+        f"your peer-teaching matches: {', '.join(pairs) or 'none'}"
+    )
+
+
+def _offline_chat_response(resources: List[Dict[str, Any]], group_context: Optional[str]) -> str:
+    if resources:
+        lines = [
+            f"- {item['kind']}: {item['title']} — {item['subject']}"
+            + (f", {item['year']}" if item.get("year") else "")
+            + f" ({item['link']})"
+            for item in resources
+        ]
+        return "Here are approved study resources matching your request:\n" + "\n".join(lines)
+    if group_context:
+        return f"Your active study group details: {group_context}. You can ask me to explain one of your weak topics or prepare for a group session."
+    return (
+        "Hello! I am here to help you navigate courses, entrance exams, and your personalized study plan. "
+        "Live AI generation is unavailable right now; please use the verified guidance and study resources in the app."
+    )
 
 
 # ─────────────────────────────────────────────
@@ -262,7 +398,7 @@ def upload_document(
 ):
     """
     Teacher uploads a guidance document for RAG.
-    payload: { title, doc_type, content, is_approved (optional) }
+    payload: { title, doc_type, content }
     """
     doc = GuidanceDocument(
         title=payload.get("title", "Guidance Document"),
@@ -270,7 +406,7 @@ def upload_document(
         content=payload.get("content", ""),
         file_path=payload.get("file_path"),
         uploaded_by=current_user.id,
-        is_approved=payload.get("is_approved", True),
+        is_approved=False,
     )
     db.add(doc)
     db.flush()
@@ -463,6 +599,8 @@ def send_message(
 
     # RAG: retrieve relevant chunks
     context_chunks = _retrieve_chunks(user_text, db, top_k=5)
+    resources = _find_study_resources(user_text, db)
+    group_context = _get_active_group_context(current_user.id, db)
 
     # Build prompt and call Gemini
     prompt = _build_prompt(
@@ -471,10 +609,22 @@ def send_message(
         skill_profile=skills,
         student_name=current_user.name,
         history=history[:-1],  # Exclude the message we just added
+        resources=resources,
+        group_context=group_context,
     )
-    ai_response = _call_gemini(prompt)
+    ai_response = _call_gemini(
+        prompt,
+        fallback_response=_offline_chat_response(resources, group_context),
+    )
     full_response = ai_response + DISCLAIMER
 
+    source_entries = (context_chunks[:3] if context_chunks else []) + [
+        {
+            "title": f"{resource['kind']}: {resource['title']}",
+            "link": resource["link"],
+        }
+        for resource in resources
+    ]
     # Save bot message
     bot_msg = ChatMessage(
         session_id=session_id,
@@ -482,8 +632,9 @@ def send_message(
         message=full_response,
         context_data={
             "weak_topics": [s.topic for s in skills if s.status == "weak"][:5],
+            "group_context": group_context,
         },
-        sources=context_chunks[:3] if context_chunks else None,
+        sources=source_entries or None,
     )
     db.add(bot_msg)
 
@@ -497,7 +648,8 @@ def send_message(
         "session_id": session_id,
         "student_message_id": student_msg.id,
         "bot_response": full_response,
-        "sources": context_chunks[:3] if context_chunks else [],
+        "sources": source_entries,
+        "recommended_resources": resources,
         "suggested_questions": _suggest_questions(skills, user_text),
     }
 

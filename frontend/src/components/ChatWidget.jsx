@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import api from "../api";
 
 function ChatWidget({ user }) {
@@ -177,7 +178,7 @@ function ChatWidget({ user }) {
                       <strong>📚 Verified Sources:</strong>
                       {m.sources.map((src, i) => (
                         <div key={i} className="source-mini-tag">
-                          📄 {src.title}
+                          📄 {src.link ? <Link to={src.link}>{src.title}</Link> : src.title}
                         </div>
                       ))}
                     </div>

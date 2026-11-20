@@ -5,10 +5,18 @@ result analysis with topic-wise breakdown, adaptive test generation.
 After each attempt the SkillProfile is updated.
 """
 import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import logging
+import os
+import uuid
+from typing import List, Optional, Literal
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
+from starlette.responses import FileResponse, RedirectResponse
 
 from database import get_db
 from auth import get_current_user, require_teacher
@@ -18,6 +26,15 @@ from models import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+MAX_PDF_BYTES = 20 * 1024 * 1024
+UPLOAD_ROOT = Path(
+    os.getenv("STUDYMATCH_UPLOAD_DIR", str(Path(__file__).resolve().parents[1] / "uploads"))
+).resolve()
+
+
+class TestReviewRequest(BaseModel):
+    decision: Literal["approve", "reject"]
 
 
 # ─────────────────────────────────────────────
@@ -35,7 +52,9 @@ def list_papers(
     db: Session = Depends(get_db),
     current_user: Student = Depends(get_current_user)
 ):
-    q = db.query(QuestionPaper).filter(QuestionPaper.approval_status == "approved")
+    q = db.query(QuestionPaper)
+    if current_user.role != "teacher":
+        q = q.filter(QuestionPaper.approval_status == "approved")
     if exam:
         q = q.filter(QuestionPaper.exam_name.ilike(f"%{exam}%"))
     if subject:
@@ -79,6 +98,8 @@ def get_paper(
     paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
+    if current_user.role != "teacher" and paper.approval_status != "approved":
+        raise HTTPException(status_code=404, detail="Paper not found")
     return _paper_dict(paper)
 
 
@@ -104,6 +125,120 @@ def upload_paper(
     db.commit()
     db.refresh(paper)
     return {"id": paper.id, "message": "Paper submitted for approval"}
+
+
+async def _store_pdf(upload: UploadFile, stored_name: str) -> str:
+    if Path(upload.filename or "").suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Upload a PDF file.")
+    content = await upload.read(MAX_PDF_BYTES + 1)
+    if len(content) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=413, detail="Each PDF must be 20 MB or smaller.")
+    if not content.startswith(b"%PDF-"):
+        raise HTTPException(status_code=422, detail="The uploaded file is not a valid PDF.")
+
+    relative_path = Path("question_papers") / stored_name
+    target_path = UPLOAD_ROOT / relative_path
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(content)
+    except OSError as exc:
+        logger.exception("Could not save an uploaded question paper.")
+        raise HTTPException(status_code=500, detail="Could not save the uploaded PDF.") from exc
+    return relative_path.as_posix()
+
+
+def _remove_stored_files(stored_paths: List[str]) -> None:
+    for stored_path in stored_paths:
+        try:
+            (UPLOAD_ROOT / stored_path).unlink(missing_ok=True)
+        except OSError:
+            logger.exception("Could not remove a question-paper file after upload failure.")
+
+
+@router.post("/papers/upload", status_code=status.HTTP_201_CREATED)
+async def upload_paper_files(
+    exam_name: str = Form(..., min_length=1, max_length=100),
+    subject: str = Form(..., min_length=1, max_length=100),
+    year: int = Form(..., ge=1900, le=2200),
+    title: str = Form(..., min_length=1, max_length=200),
+    topic_tags: str = Form(""),
+    paper_file: UploadFile = File(...),
+    answer_key_file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_teacher: Student = Depends(require_teacher),
+):
+    stored_paths = []
+    try:
+        paper_path = await _store_pdf(paper_file, f"{uuid.uuid4().hex}.pdf")
+        stored_paths.append(paper_path)
+        answer_key_path = None
+        if answer_key_file and answer_key_file.filename:
+            answer_key_path = await _store_pdf(answer_key_file, f"{uuid.uuid4().hex}-key.pdf")
+            stored_paths.append(answer_key_path)
+
+        tags = [tag.strip() for tag in topic_tags.split(",") if tag.strip()]
+        paper = QuestionPaper(
+            exam_name=exam_name.strip(),
+            subject=subject.strip(),
+            year=year,
+            title=title.strip(),
+            topic_tags=tags,
+            file_path=paper_path,
+            answer_key_file=answer_key_path,
+            approval_status="pending",
+            uploaded_by=current_teacher.id,
+        )
+        db.add(paper)
+        db.commit()
+        db.refresh(paper)
+    except HTTPException:
+        _remove_stored_files(stored_paths)
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        _remove_stored_files(stored_paths)
+        logger.exception("Could not create the uploaded question-paper record.")
+        raise HTTPException(status_code=500, detail="Could not save the question paper.") from exc
+    finally:
+        await paper_file.close()
+        if answer_key_file:
+            await answer_key_file.close()
+
+    return {"id": paper.id, "message": "Paper uploaded and submitted for approval"}
+
+
+@router.get("/papers/{paper_id}/file")
+def download_paper_file(
+    paper_id: int,
+    kind: Literal["paper", "answer_key"] = "paper",
+    db: Session = Depends(get_db),
+    current_user: Student = Depends(get_current_user),
+):
+    paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found.")
+    if current_user.role != "teacher" and paper.approval_status != "approved":
+        raise HTTPException(status_code=404, detail="Paper not found.")
+
+    stored_value = paper.file_path if kind == "paper" else paper.answer_key_file
+    if not stored_value:
+        raise HTTPException(status_code=404, detail="The requested PDF is not available.")
+    if stored_value.startswith(("https://", "http://")):
+        return RedirectResponse(stored_value)
+
+    relative_path = Path(stored_value)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise HTTPException(status_code=404, detail="Paper file not found.")
+    resolved_path = (UPLOAD_ROOT / relative_path).resolve()
+    if os.path.commonpath([str(UPLOAD_ROOT), str(resolved_path)]) != str(UPLOAD_ROOT):
+        raise HTTPException(status_code=404, detail="Paper file not found.")
+    if not resolved_path.is_file():
+        raise HTTPException(status_code=404, detail="Paper file not found.")
+    return FileResponse(
+        resolved_path,
+        media_type="application/pdf",
+        filename=resolved_path.name,
+    )
 
 
 @router.patch("/papers/{paper_id}/approve")
@@ -133,7 +268,9 @@ def list_tests(
     db: Session = Depends(get_db),
     current_user: Student = Depends(get_current_user)
 ):
-    q = db.query(Test).filter(Test.is_published == True)
+    q = db.query(Test)
+    if current_user.role != "teacher":
+        q = q.filter(Test.is_published.is_(True), Test.approval_status == "approved")
     if subject:
         q = q.filter(Test.subject.ilike(f"%{subject}%"))
     total = q.count()
@@ -153,6 +290,8 @@ def _test_dict(t: Test):
         "duration_minutes": t.duration_minutes,
         "total_marks": t.total_marks,
         "is_adaptive": t.is_adaptive,
+        "is_published": t.is_published,
+        "approval_status": t.approval_status,
         "question_count": len(t.questions),
     }
 
@@ -176,7 +315,8 @@ def create_test(
         duration_minutes=payload.get("duration_minutes", 30),
         total_marks=payload.get("total_marks", 20),
         is_adaptive=payload.get("is_adaptive", False),
-        is_published=payload.get("is_published", True),
+        is_published=False,
+        approval_status="pending",
         created_by=current_user.id,
     )
     db.add(test)
@@ -201,6 +341,25 @@ def create_test(
     return {"id": test.id, "message": "Test created"}
 
 
+@router.patch("/tests/{test_id}/review")
+def review_test(
+    test_id: int,
+    payload: TestReviewRequest,
+    db: Session = Depends(get_db),
+    current_teacher: Student = Depends(require_teacher),
+):
+    test = db.query(Test).filter(Test.id == test_id).first()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found.")
+    if test.approval_status != "pending":
+        raise HTTPException(status_code=409, detail="Only pending tests can be reviewed.")
+
+    test.approval_status = "approved" if payload.decision == "approve" else "rejected"
+    test.is_published = payload.decision == "approve"
+    db.commit()
+    return {"id": test.id, "approval_status": test.approval_status}
+
+
 @router.get("/tests/{test_id}")
 def get_test(
     test_id: int,
@@ -209,6 +368,10 @@ def get_test(
 ):
     test = db.query(Test).filter(Test.id == test_id).first()
     if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    if current_user.role != "teacher" and (
+        not test.is_published or test.approval_status != "approved"
+    ):
         raise HTTPException(status_code=404, detail="Test not found")
     questions = []
     for q in test.questions:
@@ -238,7 +401,11 @@ def start_test_attempt(
     db: Session = Depends(get_db),
     current_user: Student = Depends(get_current_user)
 ):
-    test = db.query(Test).filter(Test.id == test_id, Test.is_published == True).first()
+    test = db.query(Test).filter(
+        Test.id == test_id,
+        Test.is_published.is_(True),
+        Test.approval_status == "approved",
+    ).first()
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
 
@@ -523,7 +690,8 @@ def generate_adaptive_test(
     # Find published tests that match subject
     matching_tests = db.query(Test).filter(
         Test.subject.ilike(f"%{subject}%"),
-        Test.is_published == True,
+        Test.is_published.is_(True),
+        Test.approval_status == "approved",
     ).all()
 
     if not matching_tests:

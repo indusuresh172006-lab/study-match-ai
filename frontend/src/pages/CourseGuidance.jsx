@@ -86,12 +86,7 @@ function CourseGuidance() {
       setCourses(res.data);
     } catch (err) {
       console.error(err);
-      try {
-        const fallback = await api.get("/api/v1/guidance/courses");
-        setCourses(fallback.data.items || []);
-      } catch (e2) {
-        setCoursesError("Failed to load course recommendations.");
-      }
+      setCoursesError("Failed to load course recommendations.");
     } finally {
       setCoursesLoading(false);
     }
@@ -187,6 +182,27 @@ function CourseGuidance() {
     } finally {
       setCounsellingLoading(false);
     }
+  };
+
+  const trackGuidanceActivity = async (activityType, entityId) => {
+    try {
+      await api.post("/api/v1/guidance/activity", {
+        activity_type: activityType,
+        entity_id: entityId,
+      });
+    } catch (err) {
+      console.error("Could not record guidance exploration:", err);
+    }
+  };
+
+  const openCourseDetails = (course) => {
+    setSelectedCourse(course);
+    trackGuidanceActivity("course", course.id);
+  };
+
+  const openExamDetails = (exam) => {
+    setSelectedExam(exam);
+    trackGuidanceActivity("exam", exam.id);
   };
 
   useEffect(() => {
@@ -486,7 +502,7 @@ function CourseGuidance() {
                     <div className="card-bottom-actions compact-actions">
                       <button
                         className="action-btn-secondary btn-xs"
-                        onClick={() => setSelectedCourse(course)}
+                        onClick={() => openCourseDetails(course)}
                       >
                         Details
                       </button>
@@ -628,7 +644,7 @@ function CourseGuidance() {
                   <div className="exam-card-actions compact-actions">
                     <button
                       className="action-btn-secondary btn-xs"
-                      onClick={() => setSelectedExam(exam)}
+                      onClick={() => openExamDetails(exam)}
                     >
                       Syllabus & Tips
                     </button>

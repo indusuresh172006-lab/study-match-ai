@@ -1517,9 +1517,9 @@ body {
 }
 
 .syllabus-empty-card {
-  max-width: 760px;
-  margin: 24px auto;
-  padding: 26px;
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 24px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -1545,16 +1545,43 @@ body {
 }
 
 .syllabus-empty-card > p {
+  margin-bottom: 16px;
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.syllabus-scope-summary,
+.syllabus-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.syllabus-scope-summary span {
+  padding: 5px 9px;
+  background: var(--bg-subtle, #f1f5f9);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.syllabus-links {
+  gap: 8px 16px;
+  font-size: 12px;
+}
+
+.syllabus-empty-card > button {
+  margin-top: 2px;
 }
 
 .course-scope-form {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 16px;
   text-align: left;
 }
 
@@ -1586,10 +1613,162 @@ body {
   justify-self: center;
 }
 
+.course-scope-form .auth-error-msg {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .scope-feedback {
   margin-top: 12px;
   color: var(--primary-dark);
   font-size: 13px;
+}
+
+.teacher-class-panel {
+  margin-bottom: 24px;
+}
+
+.teacher-classes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.teacher-class-form,
+.teacher-class-roster {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.teacher-class-form h4,
+.teacher-class-roster h4 {
+  margin: 0;
+  color: var(--text-dark);
+  font-size: 15px;
+}
+
+.teacher-class-form label,
+.teacher-class-roster label,
+.class-mark-import label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.teacher-class-form input,
+.teacher-class-roster select,
+.class-mark-import input[type="file"] {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-dark);
+  font: inherit;
+}
+
+.class-join-code {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius-sm);
+}
+
+.class-join-code strong {
+  color: var(--primary-dark);
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+
+.class-join-code small,
+.class-roster-list small {
+  color: var(--text-muted);
+}
+
+.class-roster-list {
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.class-roster-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.class-mark-import {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.class-mark-import .subtext {
+  margin: 0;
+}
+
+.teacher-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.student-class-join {
+  margin: 20px 0;
+  padding: 18px;
+}
+
+.student-class-join h3,
+.student-class-join p {
+  margin-top: 0;
+}
+
+.student-class-join form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.student-class-join input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.session-mode {
+  width: fit-content;
+  padding: 3px 7px;
+  background: #eef2ff;
+  border-radius: 999px;
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
 }
 
 .subject-curriculum-card {
@@ -1953,6 +2132,10 @@ body {
   .subject-curriculum-card,
   .quiz-card-box {
     padding: 16px;
+  }
+
+  .teacher-classes-grid {
+    grid-template-columns: 1fr;
   }
 
   .course-scope-form {

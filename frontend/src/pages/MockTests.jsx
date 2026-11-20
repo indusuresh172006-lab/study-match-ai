@@ -54,6 +54,7 @@ function MockTests({ user }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
   const [createSubject, setCreateSubject] = useState("Biology");
+  const [createExamName, setCreateExamName] = useState("");
   const [createDuration, setCreateDuration] = useState(25);
   const [createTotalMarks, setCreateTotalMarks] = useState(15);
   const [createQuestions, setCreateQuestions] = useState([
@@ -264,19 +265,32 @@ function MockTests({ user }) {
       await api.post("/api/v1/tests", {
         title: createTitle,
         subject: createSubject,
+        exam_name: createExamName || null,
         duration_minutes: Number(createDuration),
         total_marks: Number(createTotalMarks),
         questions: createQuestions,
       });
       setShowCreateModal(false);
       setCreateTitle("");
+      setCreateExamName("");
       fetchTests();
-      alert("New mock test created and published for students!");
+      alert("Mock test submitted for teacher review before it is published.");
     } catch (err) {
       console.error("Failed to create test:", err);
       alert("Failed to create test. Please check all question inputs.");
     } finally {
       setSavingTest(false);
+    }
+  };
+
+  const handleReviewTest = async (testId, decision) => {
+    if (decision === "reject" && !window.confirm("Reject this mock test?")) return;
+    try {
+      await api.patch(`/api/v1/tests/${testId}/review`, { decision });
+      await fetchTests();
+    } catch (err) {
+      console.error("Mock test review error:", err);
+      alert(err.response?.data?.detail || "Could not update the test review.");
     }
   };
 
@@ -740,7 +754,7 @@ function MockTests({ user }) {
           className={`guidance-tab-btn ${browseTab === "tests" ? "active" : ""}`}
           onClick={() => setBrowseTab("tests")}
         >
-          📋 Published Mock Tests
+          {isTeacher ? "📋 Tests & Review Queue" : "📋 Published Mock Tests"}
         </button>
         <button
           className={`guidance-tab-btn ${browseTab === "adaptive" ? "active" : ""}`}
@@ -789,6 +803,11 @@ function MockTests({ user }) {
                   <div className="course-card-header">
                     <span className="stream-pill">{test.subject}</span>
                     <span className="degree-tag">{test.exam_name || "Diagnostic"}</span>
+                    {isTeacher && (
+                      <span className={`status-badge status-${test.approval_status}`}>
+                        {test.approval_status}
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="course-card-title">{test.title}</h3>
@@ -800,13 +819,32 @@ function MockTests({ user }) {
                   </div>
 
                   <div className="card-bottom-actions">
-                    <button
-                      className="action-btn-primary"
-                      style={{ width: "100%" }}
-                      onClick={() => startTest(test.id)}
-                    >
-                      Start Timed Test ⏱️
-                    </button>
+                    {isTeacher && test.approval_status === "pending" ? (
+                      <>
+                        <button
+                          className="action-btn-success"
+                          onClick={() => handleReviewTest(test.id, "approve")}
+                        >
+                          Approve & Publish
+                        </button>
+                        <button
+                          className="action-btn-secondary"
+                          onClick={() => handleReviewTest(test.id, "reject")}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : test.approval_status === "approved" && test.is_published ? (
+                      <button
+                        className="action-btn-primary"
+                        style={{ width: "100%" }}
+                        onClick={() => startTest(test.id)}
+                      >
+                        Start Timed Test ⏱️
+                      </button>
+                    ) : (
+                      <span className="subtext">This test is not published.</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -944,7 +982,7 @@ function MockTests({ user }) {
         <div className="modal-backdrop">
           <div className="modal-dialog modal-xl">
             <div className="modal-header">
-              <h3>+ Create & Publish New Mock Test</h3>
+              <h3>+ Create Mock Test for Teacher Review</h3>
               <button className="modal-close" onClick={() => setShowCreateModal(false)}>
                 &times;
               </button>
@@ -975,6 +1013,18 @@ function MockTests({ user }) {
                     <option value="Mathematics">Mathematics</option>
                     <option value="Computer Science">Computer Science</option>
                   </select>
+                </div>
+                <div>
+                  <label>Entrance exam / assessment (optional):</label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. KEAM, JEE Main, Semester Exam"
+                    value={createExamName}
+                    onChange={(e) => setCreateExamName(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
                 </div>
                 <div>
                   <label>Duration (Minutes):</label>

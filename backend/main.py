@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, desc
 
 from database import engine, Base, get_db
+from academic_scope import normalize_academic_year
 from models import (
     Student, StudentProfile, SkillProfile, StudyMaterial, MaterialBookmark,
     QuestionBank, MockTest, MockTestResponse, PreviousPaper, PaperQuestion,
     PaperAttempt, GuidanceCourse, InterestProfile, CourseSummary, MentorChatMessage,
+    Subject, Topic, QuizAttempt,
     StudyClass, ClassEnrollment
 )
 from schemas import (
@@ -291,14 +293,22 @@ def _scope_materials_to_student(query, current_user: Student, db: Session):
 
     course = (profile.course or "").strip().lower()
     curriculum = (profile.college or "").strip().lower()
-    academic_year = (profile.semester or "").strip().lower()
+    academic_year = normalize_academic_year(profile.semester)
     if not course or not curriculum or not academic_year:
         return query.filter(StudyMaterial.id == -1)
 
-    return query.filter(
+    scoped_query = query.filter(
         func.lower(func.trim(StudyMaterial.course)) == course,
         func.lower(func.trim(StudyMaterial.curriculum)) == curriculum,
-        func.lower(func.trim(StudyMaterial.academic_year)) == academic_year,
+    )
+    matching_ids = [
+        material.id for material in scoped_query.all()
+        if normalize_academic_year(material.academic_year) == academic_year
+    ]
+    return (
+        query.filter(StudyMaterial.id.in_(matching_ids))
+        if matching_ids
+        else query.filter(StudyMaterial.id == -1)
     )
 
 
@@ -387,8 +397,11 @@ def list_study_material_subjects(
     current_user: Student = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    query = _scope_materials_to_student(db.query(StudyMaterial.subject), current_user, db)
-    return [subject for (subject,) in query.distinct().order_by(StudyMaterial.subject).all()]
+    query = _scope_materials_to_student(db.query(StudyMaterial), current_user, db)
+    return [
+        subject for (subject,) in query.with_entities(StudyMaterial.subject)
+        .distinct().order_by(StudyMaterial.subject).all()
+    ]
 
 
 @app.get("/materials/{material_id}", response_model=StudyMaterialResponse)
@@ -1299,16 +1312,61 @@ def submit_paper_attempt(
 
 @app.get("/teacher/dashboard", response_model=TeacherDashboardStats)
 def get_teacher_dashboard(
+    class_id: Optional[int] = None,
     current_teacher: Student = Depends(require_teacher),
     db: Session = Depends(get_db)
 ):
-    total_students = db.query(Student).filter(Student.role == "student").count()
-    total_materials = db.query(StudyMaterial).count()
-    total_papers = db.query(PreviousPaper).count()
-    total_summaries = db.query(CourseSummary).count()
+    study_class = None
+    if class_id is not None:
+        study_class = db.query(StudyClass).filter(
+            StudyClass.id == class_id,
+            StudyClass.teacher_id == current_teacher.id,
+            StudyClass.is_active.is_(True),
+        ).first()
+        if not study_class:
+            raise HTTPException(status_code=404, detail="Class not found.")
+        student_ids = [
+            student_id for (student_id,) in db.query(ClassEnrollment.student_id).filter(
+                ClassEnrollment.class_id == study_class.id
+            ).all()
+        ]
+        students_query = db.query(Student).filter(
+            Student.role == "student",
+            Student.id.in_(student_ids),
+        )
+        skills_query = db.query(SkillProfile).filter(SkillProfile.student_id.in_(student_ids))
+        materials_query = db.query(StudyMaterial).filter(
+            func.lower(func.trim(StudyMaterial.course)) == study_class.course.strip().lower(),
+            func.lower(func.trim(StudyMaterial.curriculum)) == study_class.curriculum.strip().lower(),
+            func.lower(func.trim(StudyMaterial.academic_year)) == study_class.academic_year.strip().lower(),
+        )
+        class_subject_names = [
+            name.strip().lower()
+            for (name,) in db.query(Subject.name).filter(
+                func.lower(func.trim(Subject.course)) == study_class.course.strip().lower(),
+                func.lower(func.trim(Subject.curriculum)) == study_class.curriculum.strip().lower(),
+                func.lower(func.trim(Subject.academic_year)) == study_class.academic_year.strip().lower(),
+            ).all()
+        ]
+        total_papers = db.query(PreviousPaper).filter(
+            func.lower(PreviousPaper.subject).in_(class_subject_names)
+        ).count()
+        total_summaries = db.query(CourseSummary).filter(
+            func.lower(CourseSummary.subject).in_(class_subject_names)
+        ).count()
+    else:
+        students_query = db.query(Student).filter(Student.role == "student")
+        skills_query = db.query(SkillProfile)
+        materials_query = db.query(StudyMaterial)
+        total_papers = db.query(PreviousPaper).count()
+        total_summaries = db.query(CourseSummary).count()
+
+    students = students_query.all()
+    total_students = len(students)
+    total_materials = materials_query.count()
 
     # Find class-wide weak topics
-    all_skills = db.query(SkillProfile).all()
+    all_skills = skills_query.all()
     topic_agg: Dict[tuple, Dict[str, Any]] = {}
     for s in all_skills:
         key = (s.subject, s.topic)
@@ -1320,10 +1378,17 @@ def get_teacher_dashboard(
 
     weak_topics_list = []
     for (subj, top), val in topic_agg.items():
-        mat_count = db.query(StudyMaterial).filter(
+        linked_materials_query = db.query(StudyMaterial).filter(
             StudyMaterial.subject == subj,
             StudyMaterial.topic == top
-        ).count()
+        )
+        if study_class:
+            linked_materials_query = linked_materials_query.filter(
+                func.lower(func.trim(StudyMaterial.course)) == study_class.course.strip().lower(),
+                func.lower(func.trim(StudyMaterial.curriculum)) == study_class.curriculum.strip().lower(),
+                func.lower(func.trim(StudyMaterial.academic_year)) == study_class.academic_year.strip().lower(),
+            )
+        mat_count = linked_materials_query.count()
         avg_score = round(sum(val["scores"]) / len(val["scores"]), 1) if val["scores"] else 0.0
         weak_topics_list.append(
             ClassWeakTopicItem(
@@ -1339,12 +1404,34 @@ def get_teacher_dashboard(
     weak_topics_list.sort(key=lambda x: (x.weak_students_count, -x.average_mastery), reverse=True)
 
     # Identify at-risk students (>= 2 weak topics)
-    students = db.query(Student).filter(Student.role == "student").all()
     at_risk = []
     for st in students:
         st_skills = db.query(SkillProfile).filter(SkillProfile.student_id == st.id).all()
         st_weak = [s.topic for s in st_skills if s.status == "weak"]
-        if len(st_weak) >= 1: # Flag students with weak areas
+        recent_attempts = db.query(QuizAttempt).filter(
+            QuizAttempt.student_id == st.id
+        ).order_by(QuizAttempt.created_at.desc()).limit(60).all()
+        attempts_by_topic: Dict[int, List[float]] = {}
+        for attempt in recent_attempts:
+            attempts_by_topic.setdefault(attempt.topic_id, []).append(attempt.accuracy)
+        falling_topics = []
+        for topic_id, scores_desc in attempts_by_topic.items():
+            if len(scores_desc) < 3:
+                continue
+            scores = list(reversed(scores_desc[:3]))
+            if scores[0] - scores[-1] >= 10 and all(
+                earlier > later for earlier, later in zip(scores, scores[1:])
+            ):
+                topic = db.query(Topic.name).filter(Topic.id == topic_id).first()
+                if topic:
+                    falling_topics.append(topic[0])
+
+        risk_reasons = []
+        if st_weak:
+            risk_reasons.append(f"{len(st_weak)} weak topic(s)")
+        if falling_topics:
+            risk_reasons.append(f"Scores falling in: {', '.join(sorted(falling_topics))}")
+        if risk_reasons:
             avg_m = round(sum(s.mastery_score for s in st_skills) / len(st_skills), 1) if st_skills else 0.0
             at_risk.append(
                 AtRiskStudentItem(
@@ -1353,7 +1440,8 @@ def get_teacher_dashboard(
                     email=st.email,
                     weak_topics_count=len(st_weak),
                     weak_topics=st_weak,
-                    average_mastery=avg_m
+                    average_mastery=avg_m,
+                    risk_reasons=risk_reasons,
                 )
             )
 

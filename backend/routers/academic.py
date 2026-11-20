@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database import get_db
+from academic_scope import normalize_academic_year
 from models import Subject, Topic, Question, Student
 from auth import get_current_user, require_teacher
 
@@ -91,11 +92,13 @@ def list_subjects(
         query = query.filter(func.lower(func.trim(Subject.course)) == course.strip().lower())
     if curriculum and curriculum.strip():
         query = query.filter(func.lower(func.trim(Subject.curriculum)) == curriculum.strip().lower())
-    if academic_year and academic_year.strip():
-        query = query.filter(
-            func.lower(func.trim(Subject.academic_year)) == academic_year.strip().lower()
-        )
     subjects = query.order_by(Subject.name).all()
+    normalized_year = normalize_academic_year(academic_year)
+    if normalized_year:
+        subjects = [
+            subject for subject in subjects
+            if normalize_academic_year(subject.academic_year) == normalized_year
+        ]
     results = []
 
     for s in subjects:

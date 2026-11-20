@@ -850,6 +850,36 @@ else:
     print(f"  ✔ {len(papers)} question papers seeded")
 
 
+# Diploma-to-degree pathway data is maintained outside the main seed guard so
+# existing installations receive it when this script is rerun.
+diploma_pathways = [
+    Course(
+        title="B.Tech Computer Science & Engineering (Lateral Entry)",
+        stream="Engineering",
+        degree_level="Undergraduate Lateral Entry",
+        duration_years=3.0,
+        eligibility=(
+            "Diploma in a related engineering branch. Branch compatibility, "
+            "entrance requirements, and admission rules vary by institution "
+            "and current state notification; verify before applying."
+        ),
+        exams=["State lateral-entry admission process (verify current notification)"],
+        fee_range="Varies by institution",
+        skills_needed=["Mathematics", "Programming", "Problem Solving"],
+        job_roles=["Software Engineer", "Application Developer", "Systems Analyst"],
+        salary_range="Varies by role and location",
+        scope="A possible degree pathway for eligible diploma holders through lateral entry.",
+        top_colleges=[],
+    ),
+]
+for pathway in diploma_pathways:
+    existing = db.query(Course).filter(Course.title == pathway.title).first()
+    if not existing:
+        db.add(pathway)
+        print(f"  ✔ Added pathway: {pathway.title}")
+db.commit()
+
+
 db.close()
 print("\n✅ Phase 1 seed complete!")
 print("\nTest accounts:")
