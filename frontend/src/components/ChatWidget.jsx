@@ -138,7 +138,9 @@ function ChatWidget({ user }) {
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Open FLINT Assistant"
       >
-        <span className="trigger-icon">{isOpen ? "✕" : "🤖"}</span>
+        <span className="trigger-icon" aria-hidden="true">
+          {isOpen ? "✕" : <img src="/flint-chatbot-icon.png" alt="" />}
+        </span>
         <span className="trigger-label">{isOpen ? "Close Assistant" : "FLINT Assistant"}</span>
       </button>
 
@@ -148,7 +150,9 @@ function ChatWidget({ user }) {
           {/* Header */}
           <div className="chat-window-header">
             <div className="chat-title-group">
-              <span className="chat-avatar">🤖</span>
+              <span className="chat-avatar">
+                <img src="/flint-chatbot-icon.png" alt="" />
+              </span>
               <div>
                 <h4>FLINT Assistant</h4>
                 <span className="chat-online-indicator">● RAG Academic Engine Active</span>
