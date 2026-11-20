@@ -10,7 +10,7 @@ function Layout({ user, onLogout, children }) {
   const isTeacher = user?.role === "teacher";
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${isTeacher ? "teacher-layout" : "student-layout"}`}>
       <Navbar user={user} onLogout={onLogout} />
       <div className="layout-body">
         <Sidebar user={user} />
