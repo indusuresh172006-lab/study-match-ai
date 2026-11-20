@@ -2183,6 +2183,10 @@ body {
   flex-wrap: wrap;
 }
 
+.subject-tabs-bar {
+  margin-bottom: 20px;
+}
+
 .tab-btn,
 .subj-tab {
   background: #f1f5f9;
