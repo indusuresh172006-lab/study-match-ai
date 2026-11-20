@@ -533,6 +533,9 @@ class QuestionPaper(Base):
     id = Column(Integer, primary_key=True, index=True)
     exam_name = Column(String(100), nullable=False, index=True) # e.g. JEE Main, NEET, KEAM, Board
     subject = Column(String(100), nullable=False, index=True)
+    course = Column(String(100), nullable=True, index=True)
+    curriculum = Column(String(150), nullable=True)
+    academic_year = Column(String(20), nullable=True)
     year = Column(Integer, nullable=False, index=True)
     title = Column(String(200), nullable=False)
     topic_tags = Column(JSON, nullable=False) # list of topics covered

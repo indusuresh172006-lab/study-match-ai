@@ -42,6 +42,32 @@ class TestReviewRequest(BaseModel):
 # QUESTION PAPER LIBRARY
 # ─────────────────────────────────────────────
 
+def _paper_matches_student_scope(paper: QuestionPaper, scope) -> bool:
+    if scope is None:
+        return True
+
+    course, curriculum, academic_year = scope
+    return bool(course and curriculum and academic_year) and (
+        (paper.course or "").strip().casefold() == course
+        and (paper.curriculum or "").strip().casefold() == curriculum
+        and normalize_academic_year(paper.academic_year) == academic_year
+    )
+
+
+def _filter_papers_to_scope(query, scope):
+    if scope is None:
+        return query
+
+    course, curriculum, _ = scope
+    if not course or not curriculum:
+        return query.filter(QuestionPaper.id == -1)
+
+    return query.filter(
+        func.lower(func.trim(QuestionPaper.course)) == course,
+        func.lower(func.trim(QuestionPaper.curriculum)) == curriculum,
+    )
+
+
 @router.get("/papers")
 def list_papers(
     exam: Optional[str] = None,
@@ -66,6 +92,24 @@ def list_papers(
         # topic_tags is a JSON list — do a text search
         q = q.filter(QuestionPaper.topic_tags.cast(db.bind.dialect.name == "postgresql" and
                      __import__("sqlalchemy").Text or __import__("sqlalchemy").Text).ilike(f"%{topic}%"))
+
+    scope = _student_test_scope(db, current_user)
+    if scope is not None:
+        q = _filter_papers_to_scope(q, scope)
+        candidates = q.order_by(QuestionPaper.year.desc()).all()
+        papers = [
+            paper for paper in candidates
+            if _paper_matches_student_scope(paper, scope)
+        ]
+        total = len(papers)
+        papers = papers[skip:skip + limit]
+        return {
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+            "items": [_paper_dict(paper) for paper in papers],
+        }
+
     total = q.count()
     papers = q.order_by(QuestionPaper.year.desc()).offset(skip).limit(limit).all()
     return {
@@ -81,6 +125,9 @@ def _paper_dict(p: QuestionPaper):
         "id": p.id,
         "exam_name": p.exam_name,
         "subject": p.subject,
+        "course": p.course,
+        "curriculum": p.curriculum,
+        "academic_year": p.academic_year,
         "year": p.year,
         "title": p.title,
         "topic_tags": p.topic_tags,
@@ -99,7 +146,12 @@ def get_paper(
     paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    if current_user.role != "teacher" and paper.approval_status != "approved":
+    if current_user.role != "teacher" and (
+        paper.approval_status != "approved"
+        or not _paper_matches_student_scope(
+            paper, _student_test_scope(db, current_user)
+        )
+    ):
         raise HTTPException(status_code=404, detail="Paper not found")
     return _paper_dict(paper)
 
@@ -111,9 +163,22 @@ def upload_paper(
     current_user: Student = Depends(require_teacher)
 ):
     """Teacher uploads question paper metadata."""
+    scope_values = [
+        (payload.get(field) or "").strip()
+        for field in ("course", "curriculum", "academic_year")
+    ]
+    if any(scope_values) and not all(scope_values):
+        raise HTTPException(
+            status_code=422,
+            detail="Course, institution, and semester must all be provided for a scoped paper.",
+        )
+
     paper = QuestionPaper(
         exam_name=payload.get("exam_name", ""),
         subject=payload.get("subject", ""),
+        course=scope_values[0] or None,
+        curriculum=scope_values[1] or None,
+        academic_year=scope_values[2] or None,
         year=payload.get("year", datetime.datetime.utcnow().year),
         title=payload.get("title", ""),
         topic_tags=payload.get("topic_tags", []),
@@ -163,6 +228,9 @@ async def upload_paper_files(
     year: int = Form(..., ge=1900, le=2200),
     title: str = Form(..., min_length=1, max_length=200),
     topic_tags: str = Form(""),
+    course: Optional[str] = Form(None, max_length=100),
+    curriculum: Optional[str] = Form(None, max_length=150),
+    academic_year: Optional[str] = Form(None, max_length=20),
     paper_file: UploadFile = File(...),
     answer_key_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
@@ -170,6 +238,16 @@ async def upload_paper_files(
 ):
     stored_paths = []
     try:
+        scope_values = [
+            (value or "").strip()
+            for value in (course, curriculum, academic_year)
+        ]
+        if any(scope_values) and not all(scope_values):
+            raise HTTPException(
+                status_code=422,
+                detail="Course, institution, and semester must all be provided for a scoped paper.",
+            )
+
         paper_path = await _store_pdf(paper_file, f"{uuid.uuid4().hex}.pdf")
         stored_paths.append(paper_path)
         answer_key_path = None
@@ -181,6 +259,9 @@ async def upload_paper_files(
         paper = QuestionPaper(
             exam_name=exam_name.strip(),
             subject=subject.strip(),
+            course=scope_values[0] or None,
+            curriculum=scope_values[1] or None,
+            academic_year=scope_values[2] or None,
             year=year,
             title=title.strip(),
             topic_tags=tags,
@@ -218,7 +299,12 @@ def download_paper_file(
     paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found.")
-    if current_user.role != "teacher" and paper.approval_status != "approved":
+    if current_user.role != "teacher" and (
+        paper.approval_status != "approved"
+        or not _paper_matches_student_scope(
+            paper, _student_test_scope(db, current_user)
+        )
+    ):
         raise HTTPException(status_code=404, detail="Paper not found.")
 
     stored_value = paper.file_path if kind == "paper" else paper.answer_key_file
