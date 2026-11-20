@@ -466,7 +466,7 @@ function StudentDashboard({ user }) {
 
                   <div className="revision-block" style={{ marginBottom: "16px" }}>
                     <h4 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", marginBottom: "8px" }}>🧪 Practical Example:</h4>
-                    <div style={{ background: "#1e1b4b", color: "#e0e7ff", padding: "12px", borderRadius: "8px", fontFamily: "monospace", fontSize: "12.5px" }}>
+                    <div style={{ background: "#075B68", color: "#EAF7F5", padding: "12px", borderRadius: "8px", fontFamily: "monospace", fontSize: "12.5px" }}>
                       <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
                         {revisionNotes.practical_example}
                       </pre>

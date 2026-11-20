@@ -51,7 +51,7 @@ function Login({ onLogin, onSwitchToRegister }) {
   return (
     <div className="auth-card">
       <div className="auth-brand-head">
-        <span className="auth-logo">🎓</span>
+        <img className="auth-logo" src="/flint-logo.jpeg" alt="FLINT education logo" />
         <h1>StudyMatch AI</h1>
         <p className="auth-subtitle">Sign in to your learning dashboard</p>
       </div>

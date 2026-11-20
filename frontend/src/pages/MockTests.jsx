@@ -631,7 +631,7 @@ function MockTests({ user }) {
                   <XAxis dataKey="topic" />
                   <YAxis domain={[0, 100]} />
                   <Tooltip formatter={(value) => [`${value}%`, "Accuracy"]} />
-                  <Bar dataKey="accuracy" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="accuracy" fill="#00A99D" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -950,7 +950,7 @@ function MockTests({ user }) {
                         <XAxis dataKey="name" />
                         <YAxis domain={[0, 100]} />
                         <Tooltip formatter={(value) => [`${value}%`, "Accuracy"]} />
-                        <Line type="monotone" dataKey="pct" stroke="#4f46e5" strokeWidth={3} dot={{ r: 5 }} />
+                        <Line type="monotone" dataKey="pct" stroke="#00A99D" strokeWidth={3} dot={{ r: 5 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
