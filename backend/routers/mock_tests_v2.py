@@ -18,10 +18,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from starlette.responses import FileResponse, RedirectResponse
 
+from academic_scope import normalize_academic_year
 from database import get_db
 from auth import get_current_user, require_teacher
 from models import (
-    Student, SkillProfile, QuestionPaper, Test, TestQuestion,
+    Student, StudentProfile, SkillProfile, QuestionPaper, Test, TestQuestion,
     TestAttempt, AttemptAnswer, TestResult
 )
 
@@ -260,6 +261,49 @@ def approve_paper(
 # TESTS (Teacher CRUD)
 # ─────────────────────────────────────────────
 
+def _student_test_scope(db: Session, current_user: Student):
+    if current_user.role != "student":
+        return None
+
+    profile = db.query(StudentProfile).filter(
+        StudentProfile.student_id == current_user.id
+    ).first()
+    if not profile:
+        return None
+
+    return (
+        (profile.course or "").strip().casefold(),
+        (profile.college or "").strip().casefold(),
+        normalize_academic_year(profile.semester),
+    )
+
+
+def _test_matches_student_scope(test: Test, scope) -> bool:
+    if scope is None:
+        return True
+
+    course, curriculum, academic_year = scope
+    return bool(course and curriculum and academic_year) and (
+        (test.course or "").strip().casefold() == course
+        and (test.curriculum or "").strip().casefold() == curriculum
+        and normalize_academic_year(test.academic_year) == academic_year
+    )
+
+
+def _filter_tests_to_scope(query, scope):
+    if scope is None:
+        return query
+
+    course, curriculum, _ = scope
+    if not course or not curriculum:
+        return query.filter(Test.id == -1)
+
+    return query.filter(
+        func.lower(func.trim(Test.course)) == course,
+        func.lower(func.trim(Test.curriculum)) == curriculum,
+    )
+
+
 @router.get("/tests")
 def list_tests(
     subject: Optional[str] = None,
@@ -273,6 +317,19 @@ def list_tests(
         q = q.filter(Test.is_published.is_(True), Test.approval_status == "approved")
     if subject:
         q = q.filter(Test.subject.ilike(f"%{subject}%"))
+
+    scope = _student_test_scope(db, current_user)
+    if scope is not None:
+        q = _filter_tests_to_scope(q, scope)
+        candidates = q.order_by(Test.created_at.desc()).all()
+        tests = [test for test in candidates if _test_matches_student_scope(test, scope)]
+        total = len(tests)
+        tests = tests[skip:skip + limit]
+        return {
+            "total": total,
+            "items": [_test_dict(test) for test in tests],
+        }
+
     total = q.count()
     tests = q.order_by(Test.created_at.desc()).offset(skip).limit(limit).all()
     return {
@@ -286,6 +343,9 @@ def _test_dict(t: Test):
         "id": t.id,
         "title": t.title,
         "subject": t.subject,
+        "course": t.course,
+        "curriculum": t.curriculum,
+        "academic_year": t.academic_year,
         "exam_name": t.exam_name,
         "duration_minutes": t.duration_minutes,
         "total_marks": t.total_marks,
@@ -304,13 +364,27 @@ def create_test(
 ):
     """
     payload: {
-      title, subject, exam_name, duration_minutes, total_marks, is_adaptive,
+      title, subject, course, curriculum, academic_year, exam_name,
+      duration_minutes, total_marks, is_adaptive,
       questions: [ {question_text, question_type, options, correct_answer, explanation, topic, difficulty, marks} ]
     }
     """
+    scope_values = [
+        (payload.get(field) or "").strip()
+        for field in ("course", "curriculum", "academic_year")
+    ]
+    if any(scope_values) and not all(scope_values):
+        raise HTTPException(
+            status_code=422,
+            detail="Course, institution, and semester must all be provided for a scoped test.",
+        )
+
     test = Test(
         title=payload.get("title", "New Test"),
         subject=payload.get("subject", ""),
+        course=scope_values[0] or None,
+        curriculum=scope_values[1] or None,
+        academic_year=scope_values[2] or None,
         exam_name=payload.get("exam_name"),
         duration_minutes=payload.get("duration_minutes", 30),
         total_marks=payload.get("total_marks", 20),
@@ -369,6 +443,10 @@ def get_test(
     test = db.query(Test).filter(Test.id == test_id).first()
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
+    if not _test_matches_student_scope(
+        test, _student_test_scope(db, current_user)
+    ):
+        raise HTTPException(status_code=404, detail="Test not found")
     if current_user.role != "teacher" and (
         not test.is_published or test.approval_status != "approved"
     ):
@@ -407,6 +485,10 @@ def start_test_attempt(
         Test.approval_status == "approved",
     ).first()
     if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    if not _test_matches_student_scope(
+        test, _student_test_scope(db, current_user)
+    ):
         raise HTTPException(status_code=404, detail="Test not found")
 
     attempt = TestAttempt(
@@ -688,11 +770,17 @@ def generate_adaptive_test(
     weak_topics = [s.topic for s in weak_skills]
 
     # Find published tests that match subject
-    matching_tests = db.query(Test).filter(
+    test_query = db.query(Test).filter(
         Test.subject.ilike(f"%{subject}%"),
         Test.is_published.is_(True),
         Test.approval_status == "approved",
-    ).all()
+    )
+    scope = _student_test_scope(db, current_user)
+    test_query = _filter_tests_to_scope(test_query, scope)
+    matching_tests = [
+        test for test in test_query.all()
+        if _test_matches_student_scope(test, scope)
+    ]
 
     if not matching_tests:
         raise HTTPException(

@@ -46,14 +46,17 @@ function MockTests({ user }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Adaptive Test Generator State
-  const [adaptiveSubject, setAdaptiveSubject] = useState("Biology");
+  const [adaptiveSubject, setAdaptiveSubject] = useState("");
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [studentWeakTopics, setStudentWeakTopics] = useState([]);
 
   // Teacher Create Test Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
-  const [createSubject, setCreateSubject] = useState("Biology");
+  const [createSubject, setCreateSubject] = useState("");
+  const [createCourse, setCreateCourse] = useState("");
+  const [createCurriculum, setCreateCurriculum] = useState("");
+  const [createAcademicYear, setCreateAcademicYear] = useState("");
   const [createExamName, setCreateExamName] = useState("");
   const [createDuration, setCreateDuration] = useState(25);
   const [createTotalMarks, setCreateTotalMarks] = useState(15);
@@ -71,6 +74,14 @@ function MockTests({ user }) {
   ]);
   const [savingTest, setSavingTest] = useState(false);
 
+  const testSubjects = [...new Set(tests.map((test) => test.subject).filter(Boolean))];
+  const visibleTests = selectedSubjectFilter === "All"
+    ? tests
+    : tests.filter((test) => test.subject === selectedSubjectFilter);
+  const relevantWeakTopics = studentWeakTopics.filter((topic) =>
+    testSubjects.includes(topic.subject)
+  );
+
   // ─────────────────────────────────────────────
   // Fetch Functions
   // ─────────────────────────────────────────────
@@ -78,8 +89,7 @@ function MockTests({ user }) {
   const fetchTests = async () => {
     setTestsLoading(true);
     try {
-      const subjectParam = selectedSubjectFilter !== "All" ? `?subject=${selectedSubjectFilter}` : "";
-      const res = await api.get(`/api/v1/tests${subjectParam}`);
+      const res = await api.get("/api/v1/tests");
       setTests(res.data.items || []);
     } catch (err) {
       console.error("Error fetching tests:", err);
@@ -111,8 +121,10 @@ function MockTests({ user }) {
   }, []);
 
   useEffect(() => {
-    fetchTests();
-  }, [selectedSubjectFilter]);
+    if (testSubjects.length && !testSubjects.includes(adaptiveSubject)) {
+      setAdaptiveSubject(testSubjects[0]);
+    }
+  }, [tests, adaptiveSubject]);
 
   // ─────────────────────────────────────────────
   // Test Attempt Flow
@@ -265,6 +277,9 @@ function MockTests({ user }) {
       await api.post("/api/v1/tests", {
         title: createTitle,
         subject: createSubject,
+        course: createCourse.trim() || null,
+        curriculum: createCurriculum.trim() || null,
+        academic_year: createAcademicYear.trim() || null,
         exam_name: createExamName || null,
         duration_minutes: Number(createDuration),
         total_marks: Number(createTotalMarks),
@@ -272,6 +287,10 @@ function MockTests({ user }) {
       });
       setShowCreateModal(false);
       setCreateTitle("");
+      setCreateSubject("");
+      setCreateCourse("");
+      setCreateCurriculum("");
+      setCreateAcademicYear("");
       setCreateExamName("");
       fetchTests();
       alert("Mock test submitted for teacher review before it is published.");
@@ -777,7 +796,7 @@ function MockTests({ user }) {
         <div>
           {/* Subject Filter */}
           <div className="stream-filter-pills" style={{ marginBottom: "20px" }}>
-            {["All", "Biology", "Mathematics", "Computer Science"].map((subj) => (
+            {["All", ...testSubjects].map((subj) => (
               <button
                 key={subj}
                 className={`filter-pill ${selectedSubjectFilter === subj ? "active" : ""}`}
@@ -790,19 +809,22 @@ function MockTests({ user }) {
 
           {testsLoading ? (
             <LoadingSpinner message="Loading mock tests library..." />
-          ) : tests.length === 0 ? (
+          ) : visibleTests.length === 0 ? (
             <EmptyState
               icon="📝"
               title="No tests found"
-              message="Check back soon or generate an adaptive practice test."
+              message="No published tests match your course and semester yet. Ask your teacher to add one."
             />
           ) : (
             <div className="courses-grid">
-              {tests.map((test) => (
+              {visibleTests.map((test) => (
                 <div key={test.id} className="course-card-enhanced">
                   <div className="course-card-header">
                     <span className="stream-pill">{test.subject}</span>
                     <span className="degree-tag">{test.exam_name || "Diagnostic"}</span>
+                    {test.academic_year && (
+                      <span className="degree-tag">{test.academic_year}</span>
+                    )}
                     {isTeacher && (
                       <span className={`status-badge status-${test.approval_status}`}>
                         {test.approval_status}
@@ -872,8 +894,8 @@ function MockTests({ user }) {
           <div style={{ margin: "20px 0" }}>
             <h4>Your Current Weak Topics:</h4>
             <div className="pills-wrap" style={{ marginTop: "8px" }}>
-              {studentWeakTopics.length > 0 ? (
-                studentWeakTopics.map((w, i) => (
+              {relevantWeakTopics.length > 0 ? (
+                relevantWeakTopics.map((w, i) => (
                   <span key={i} className="danger-topic-pill">
                     ⚠️ {w.subject}: {w.topic} (Mastery: {w.mastery_score}%)
                   </span>
@@ -891,16 +913,16 @@ function MockTests({ user }) {
               onChange={(e) => setAdaptiveSubject(e.target.value)}
               className="search-input"
             >
-              <option value="Biology">Biology</option>
-              <option value="Mathematics">Mathematics</option>
-              <option value="Computer Science">Computer Science</option>
+              {testSubjects.map((subject) => (
+                <option key={subject} value={subject}>{subject}</option>
+              ))}
             </select>
           </div>
 
           <button
             className="action-btn-primary"
             onClick={startAdaptiveTest}
-            disabled={adaptiveLoading}
+            disabled={adaptiveLoading || !testSubjects.length}
           >
             {adaptiveLoading ? "Assembling Adaptive Drill..." : `Launch Adaptive ${adaptiveSubject} Test →`}
           </button>
@@ -1003,16 +1025,51 @@ function MockTests({ user }) {
                 </div>
                 <div>
                   <label>Subject:</label>
-                  <select
+                  <input
+                    type="text"
+                    placeholder="e.g. Programming in C"
                     value={createSubject}
                     onChange={(e) => setCreateSubject(e.target.value)}
+                    required
                     className="search-input"
                     style={{ width: "100%", marginTop: "4px" }}
-                  >
-                    <option value="Biology">Biology</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Computer Science">Computer Science</option>
-                  </select>
+                  />
+                </div>
+                <div>
+                  <label>Course (optional):</label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. Diploma in Computer Engineering"
+                    value={createCourse}
+                    onChange={(e) => setCreateCourse(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
+                </div>
+                <div>
+                  <label>College / curriculum (optional):</label>
+                  <input
+                    type="text"
+                    maxLength={150}
+                    placeholder="e.g. Polytechnic College Kannur"
+                    value={createCurriculum}
+                    onChange={(e) => setCreateCurriculum(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
+                </div>
+                <div>
+                  <label>Semester / academic year (optional):</label>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    placeholder="e.g. 3rd Semester"
+                    value={createAcademicYear}
+                    onChange={(e) => setCreateAcademicYear(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
                 </div>
                 <div>
                   <label>Entrance exam / assessment (optional):</label>
@@ -1050,6 +1107,9 @@ function MockTests({ user }) {
                   />
                 </div>
               </div>
+              <p className="subtext">
+                To show this test only to a matching student group, fill in all three course-scope fields.
+              </p>
 
               <h4>Test Questions ({createQuestions.length})</h4>
               {createQuestions.map((q, qIndex) => (

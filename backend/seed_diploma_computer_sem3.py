@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal
-from models import Question, StudyMaterial, Subject, Topic
+from models import Question, StudyMaterial, Subject, Test, TestQuestion, Topic
 
 
 COURSE = "Diploma in Computer Engineering"
@@ -269,10 +269,52 @@ def seed_diploma_computer_sem3():
                     difficulty_level="easy",
                 ))
 
+        mock_test_title = "Diploma Computer Engineering Semester III Mock Test"
+        mock_test = db.query(Test).filter(
+            Test.title == mock_test_title,
+            Test.course == COURSE,
+            Test.curriculum == CURRICULUM,
+            Test.academic_year == SEMESTER,
+        ).first()
+        if not mock_test:
+            mock_test = Test(
+                title=mock_test_title,
+                subject=COURSE,
+                course=COURSE,
+                curriculum=CURRICULUM,
+                academic_year=SEMESTER,
+                exam_name=f"{REVISION} Semester III",
+                duration_minutes=30,
+                total_marks=len(COURSES),
+                is_adaptive=False,
+                is_published=True,
+                approval_status="approved",
+            )
+            db.add(mock_test)
+            db.flush()
+
+        for item in COURSES:
+            question = db.query(TestQuestion).filter(
+                TestQuestion.test_id == mock_test.id,
+                TestQuestion.question_text == item["question"],
+            ).first()
+            if not question:
+                db.add(TestQuestion(
+                    test_id=mock_test.id,
+                    question_text=item["question"],
+                    question_type="mcq",
+                    options=item["options"],
+                    correct_answer=str(item["correct"]),
+                    explanation=item["explanation"],
+                    topic=item["topic"],
+                    difficulty="easy",
+                    marks=1.0,
+                ))
+
         db.commit()
         print(
             f"Seeded {len(COURSES)} {REVISION} Computer Engineering Semester III "
-            "subjects, practice quizzes, and study resources."
+            "subjects, practice quizzes, study resources, and one mock test."
         )
     finally:
         db.close()

@@ -548,6 +548,9 @@ class Test(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
     subject = Column(String(100), nullable=False, index=True)
+    course = Column(String(100), nullable=True, index=True)
+    curriculum = Column(String(150), nullable=True)
+    academic_year = Column(String(20), nullable=True)
     exam_name = Column(String(100), nullable=True) # e.g. JEE Main, Class 12 Mid-Term
     duration_minutes = Column(Integer, default=30)
     total_marks = Column(Integer, default=20)

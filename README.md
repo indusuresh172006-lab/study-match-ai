@@ -173,7 +173,7 @@ CREATE DATABASE studymatch_db;
    python seed_phase1.py
    python seed_diploma_computer_sem3.py
    ```
-   `seed_phase1.py` also upserts diploma lateral-entry guidance when rerun, even if the general guidance catalogue was already seeded. `seed_diploma_computer_sem3.py` adds the SITTTR Revision 2021 Computer Engineering Semester III course list, plus starter practice topics, quizzes, and study notes scoped to Polytechnic College Kannur. The course list is from the official SITTTR catalog; teachers should verify the starter topics and questions against the detailed syllabus.
+   `seed_phase1.py` also upserts diploma lateral-entry guidance when rerun, even if the general guidance catalogue was already seeded. `seed_diploma_computer_sem3.py` adds the SITTTR Revision 2021 Computer Engineering Semester III course list, starter practice topics and quizzes, a course-scoped mock test, and separate study notes for Polytechnic College Kannur. The course list is from the official SITTTR catalog; teachers should verify the starter topics and questions against the detailed syllabus. Mock tests can be scoped to a course, institution, and semester; all three fields must be provided together.
 
 6. **Start the FastAPI Server**:
    ```powershell

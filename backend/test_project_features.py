@@ -12,6 +12,7 @@ from ml.group_matcher import form_balanced_study_groups, match_study_schedules
 from routers.chatbot import _find_study_resources
 from routers.classes import parse_mark_rows
 from routers.guidance import _filter_courses_for_diploma, recommend_courses
+from routers.mock_tests_v2 import _test_matches_student_scope, create_test
 
 
 class ProjectFeatureTests(unittest.TestCase):
@@ -329,6 +330,42 @@ class ProjectFeatureTests(unittest.TestCase):
         self.assertEqual(normalize_academic_year("3rs sem"), "semester:3")
         self.assertEqual(normalize_academic_year("3rd Semester"), "semester:3")
         self.assertEqual(normalize_academic_year("Semester 3"), "semester:3")
+
+    def test_mock_test_scope_matches_course_college_and_normalized_semester(self):
+        scope = (
+            "diploma in computer engineering",
+            "polytechnic college kannur",
+            "semester:3",
+        )
+        matching_test = SimpleNamespace(
+            course="Diploma in Computer Engineering",
+            curriculum="Polytechnic College Kannur",
+            academic_year="3rd Semester",
+        )
+        other_course = SimpleNamespace(
+            course="B.Tech",
+            curriculum="Polytechnic College Kannur",
+            academic_year="3rd Semester",
+        )
+        other_semester = SimpleNamespace(
+            course="Diploma in Computer Engineering",
+            curriculum="Polytechnic College Kannur",
+            academic_year="4th Semester",
+        )
+
+        self.assertTrue(_test_matches_student_scope(matching_test, scope))
+        self.assertFalse(_test_matches_student_scope(other_course, scope))
+        self.assertFalse(_test_matches_student_scope(other_semester, scope))
+
+    def test_mock_test_rejects_partial_course_scope(self):
+        with self.assertRaises(HTTPException) as raised:
+            create_test(
+                {"title": "Scoped test", "subject": "Programming", "course": "Diploma"},
+                db=MagicMock(),
+                current_user=SimpleNamespace(id=1),
+            )
+
+        self.assertEqual(raised.exception.status_code, 422)
 
 
 if __name__ == "__main__":
