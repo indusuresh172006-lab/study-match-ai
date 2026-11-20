@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from fastapi import HTTPException
 
 from academic_scope import normalize_academic_year
-from main import _scope_materials_to_student
+from main import _scope_materials_to_student, _summary_matches_student_scope
 from routers.academic import list_subjects
 from ml.group_matcher import form_balanced_study_groups, match_study_schedules
 from routers.chatbot import _find_study_resources
@@ -366,6 +366,26 @@ class ProjectFeatureTests(unittest.TestCase):
             )
 
         self.assertEqual(raised.exception.status_code, 422)
+
+    def test_course_summary_scope_matches_diploma_profile(self):
+        scope = (
+            "diploma in computer engineering",
+            "polytechnic college kannur",
+            "semester:3",
+        )
+        matching_summary = SimpleNamespace(
+            course="Diploma in Computer Engineering",
+            curriculum="Polytechnic College Kannur",
+            academic_year="3rd Semester",
+        )
+        unrelated_summary = SimpleNamespace(
+            course="B.Tech",
+            curriculum="Polytechnic College Kannur",
+            academic_year="3rd Semester",
+        )
+
+        self.assertTrue(_summary_matches_student_scope(matching_summary, scope))
+        self.assertFalse(_summary_matches_student_scope(unrelated_summary, scope))
 
 
 if __name__ == "__main__":

@@ -1045,21 +1045,74 @@ def get_mock_test_history(
 # 7. FEATURE 5: COURSE SUMMARIES & RAPID REVISION
 # =====================================================================
 
+def _student_summary_scope(db: Session, current_user: Student):
+    if current_user.role != "student":
+        return None
+
+    profile = db.query(StudentProfile).filter(
+        StudentProfile.student_id == current_user.id
+    ).first()
+    if not profile:
+        return None
+
+    return (
+        (profile.course or "").strip().casefold(),
+        (profile.college or "").strip().casefold(),
+        normalize_academic_year(profile.semester),
+    )
+
+
+def _summary_matches_student_scope(summary: CourseSummary, scope) -> bool:
+    if scope is None:
+        return True
+
+    course, curriculum, academic_year = scope
+    return bool(course and curriculum and academic_year) and (
+        (summary.course or "").strip().casefold() == course
+        and (summary.curriculum or "").strip().casefold() == curriculum
+        and normalize_academic_year(summary.academic_year) == academic_year
+    )
+
+
+def _filter_summaries_to_scope(query, scope):
+    if scope is None:
+        return query
+
+    course, curriculum, _ = scope
+    if not course or not curriculum:
+        return query.filter(CourseSummary.id == -1)
+
+    return query.filter(
+        func.lower(func.trim(CourseSummary.course)) == course,
+        func.lower(func.trim(CourseSummary.curriculum)) == curriculum,
+    )
+
+
 @app.get("/summaries", response_model=List[CourseSummaryResponse])
 def list_course_summaries(
     subject: Optional[str] = None,
-    db: Session = Depends(get_db)
+    current_user: Student = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     query = db.query(CourseSummary)
     if subject and subject != "All":
         query = query.filter(CourseSummary.subject == subject)
-    return [CourseSummaryResponse.model_validate(s) for s in query.all()]
+    scope = _student_summary_scope(db, current_user)
+    query = _filter_summaries_to_scope(query, scope)
+    summaries = query.all()
+    if scope is not None:
+        summaries = [
+            summary for summary in summaries
+            if _summary_matches_student_scope(summary, scope)
+        ]
+    return [CourseSummaryResponse.model_validate(s) for s in summaries]
 
 
 @app.get("/summaries/{summary_id}", response_model=CourseSummaryResponse)
 def get_course_summary(
     summary_id: int,
-    db: Session = Depends(get_db)
+    current_user: Student = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     summary = db.query(CourseSummary).filter(CourseSummary.id == summary_id).first()
     if not summary:
@@ -1075,7 +1128,8 @@ def edit_course_summary(
     db: Session = Depends(get_db)
 ):
     summary = db.query(CourseSummary).filter(CourseSummary.id == summary_id).first()
-    if not summary:
+    scope = _student_summary_scope(db, current_user)
+    if not summary or not _summary_matches_student_scope(summary, scope):
         raise HTTPException(status_code=404, detail="Course summary not found")
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -1100,7 +1154,8 @@ def submit_summary_quiz(
     db: Session = Depends(get_db)
 ):
     summary = db.query(CourseSummary).filter(CourseSummary.id == summary_id).first()
-    if not summary:
+    scope = _student_summary_scope(db, current_user)
+    if not summary or not _summary_matches_student_scope(summary, scope):
         raise HTTPException(status_code=404, detail="Course summary not found")
 
     quiz_questions = summary.quiz_questions or []

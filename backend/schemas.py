@@ -283,6 +283,9 @@ class QuizQuestionItem(BaseModel):
 class CourseSummaryResponse(BaseModel):
     id: int
     subject: str
+    course: Optional[str] = None
+    curriculum: Optional[str] = None
+    academic_year: Optional[str] = None
     topic: str
     title: str
     overview: str

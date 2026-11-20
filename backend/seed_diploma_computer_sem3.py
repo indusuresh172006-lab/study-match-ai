@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal
-from models import Question, StudyMaterial, Subject, Test, TestQuestion, Topic
+from models import CourseSummary, Question, StudyMaterial, Subject, Test, TestQuestion, Topic
 
 
 COURSE = "Diploma in Computer Engineering"
@@ -25,6 +25,11 @@ COURSES = [
         "explanation": "The control unit coordinates instruction fetch, decode, and execution.",
         "material_type": "notes",
         "material_summary": "Review the main CPU components and how instructions move through the processor.",
+        "summary_key_points": [
+            "The control unit coordinates instruction execution; the ALU handles arithmetic and logic.",
+            "The instruction cycle commonly proceeds through fetch, decode, and execute.",
+            "Registers and cache provide fast storage close to the CPU.",
+        ],
         "material_content": """# Computer Organisation - Quick Notes
 
 The CPU contains the arithmetic logic unit (ALU), control unit, and registers. The control unit directs operations, while the ALU performs arithmetic and logical operations. Registers hold small amounts of data close to the CPU.
@@ -44,6 +49,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm de
         "explanation": "A for loop groups initialization, condition, and update for a counted iteration.",
         "material_type": "notes",
         "material_summary": "A concise review of C statements, loops, and arrays.",
+        "summary_key_points": [
+            "Use if or switch for selection and loops for repeated operations.",
+            "A for loop is convenient when the iteration count is known.",
+            "C arrays use zero-based indexes; initialize values and check bounds.",
+        ],
         "material_content": """# Programming in C - Quick Notes
 
 A C program uses declarations, expressions, and statements. Selection statements such as if and switch choose a path. Loops repeat work: for is convenient for counted loops, while checks a condition before each iteration, and do-while checks after the loop body.
@@ -68,6 +78,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm de
         "explanation": "A primary key uniquely identifies each row and cannot contain duplicate key values.",
         "material_type": "notes",
         "material_summary": "Review relational tables, keys, and the structure of common SQL queries.",
+        "summary_key_points": [
+            "Relational data is organized in tables of rows and columns.",
+            "Primary keys identify rows; foreign keys connect related tables.",
+            "SELECT reads rows, while INSERT, UPDATE, and DELETE change data.",
+        ],
         "material_content": """# Database Management Systems - Quick Notes
 
 A relational database stores data in tables made of rows and columns. A primary key identifies a row; a foreign key connects a row to a key in another table. Constraints help protect data integrity.
@@ -87,6 +102,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm de
         "explanation": "1011₂ = 8 + 0 + 2 + 1 = 11₁₀.",
         "material_type": "learning_material",
         "material_summary": "Practice binary place values and the basic operations of Boolean logic.",
+        "summary_key_points": [
+            "Each binary digit represents a power of two; 1011₂ equals 11₁₀.",
+            "Boolean values are 0 and 1.",
+            "AND, OR, and NOT operations can be checked with truth tables.",
+        ],
         "material_content": """# Digital Computer Fundamentals - Quick Notes
 
 Binary numbers use the digits 0 and 1. Each position represents a power of two; for example, 1011₂ equals 1×8 + 0×4 + 1×2 + 1×1 = 11₁₀.
@@ -106,6 +126,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm de
         "explanation": "Execution of a standard hosted C program begins in main.",
         "material_type": "topic_resource",
         "material_summary": "A simple checklist for building, running, and checking C lab programs.",
+        "summary_key_points": [
+            "Identify the inputs, outputs, and algorithm before writing code.",
+            "Compile and resolve warnings before evaluating program output.",
+            "Test normal and boundary inputs and record observed results.",
+        ],
         "material_content": """# Programming in C Lab - Practice Guide
 
 1. Read the problem and identify inputs, outputs, and required calculations.
@@ -127,6 +152,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm la
         "explanation": "WHERE applies a condition to rows selected by a query.",
         "material_type": "topic_resource",
         "material_summary": "Practice defining tables and using basic SQL data and query statements.",
+        "summary_key_points": [
+            "CREATE TABLE defines columns and constraints; INSERT adds records.",
+            "Use SELECT and WHERE to query the intended rows.",
+            "Check WHERE conditions carefully before UPDATE or DELETE.",
+        ],
         "material_content": """# Database Management System Lab - Practice Guide
 
 Use CREATE TABLE to define columns and constraints. Add records with INSERT, read them with SELECT, and use WHERE to filter results. UPDATE changes selected rows and DELETE removes selected rows, so check the WHERE condition before running either statement.
@@ -146,6 +176,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm la
         "explanation": "XOR is 1 when its inputs differ; equal inputs produce 0.",
         "material_type": "topic_resource",
         "material_summary": "Use truth tables to verify basic logic-gate behavior.",
+        "summary_key_points": [
+            "List every input combination when constructing a truth table.",
+            "XOR outputs 1 only when its two inputs differ.",
+            "Compare calculated outputs with the lab circuit or simulator.",
+        ],
         "material_content": """# Digital Computer Fundamentals Lab - Practice Guide
 
 For each gate, list every possible input combination and calculate the output. AND requires both inputs to be 1; OR requires at least one input to be 1; NOT inverts a single input. XOR is 1 only when its two inputs differ.
@@ -165,6 +200,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm la
         "explanation": "The form element groups controls for submitting user data.",
         "material_type": "topic_resource",
         "material_summary": "Review the structure of an HTML page and the purpose of common form elements.",
+        "summary_key_points": [
+            "A basic HTML document contains doctype, html, head, and body sections.",
+            "Forms group labeled controls such as input, select, and button.",
+            "Use CSS for presentation and check pages at different viewport sizes.",
+        ],
         "material_content": """# Web Technology Lab - Practice Guide
 
 An HTML document has a doctype, html root, head metadata, and body content. Use headings and semantic elements to structure a page. A form groups controls such as input, label, select, and button.
@@ -184,6 +224,11 @@ These are starter revision notes for the SITTTR Revision 2021 course. Confirm la
         "explanation": "RAM is volatile working memory used by running programs.",
         "material_type": "topic_resource",
         "material_summary": "Identify common PC components and follow basic safety checks.",
+        "summary_key_points": [
+            "The motherboard connects the CPU, RAM, storage, and peripherals.",
+            "RAM is temporary working memory; SSDs retain data without power.",
+            "Disconnect power and use electrostatic precautions before handling parts.",
+        ],
         "material_content": """# Computer System Hardware Lab - Practice Guide
 
 The motherboard connects the CPU, memory, storage, and peripheral interfaces. RAM temporarily holds data used by active programs; SSDs and hard drives retain data when power is off. The power supply provides regulated power to system components.
@@ -269,6 +314,33 @@ def seed_diploma_computer_sem3():
                     difficulty_level="easy",
                 ))
 
+            course_summary = db.query(CourseSummary).filter(
+                CourseSummary.subject == item["name"],
+                CourseSummary.topic == item["topic"],
+                CourseSummary.course == COURSE,
+                CourseSummary.curriculum == CURRICULUM,
+                CourseSummary.academic_year == SEMESTER,
+            ).first()
+            if not course_summary:
+                db.add(CourseSummary(
+                    subject=item["name"],
+                    course=COURSE,
+                    curriculum=CURRICULUM,
+                    academic_year=SEMESTER,
+                    topic=item["topic"],
+                    title=f"{item['name']} - Semester III Quick Summary",
+                    overview=item["material_summary"],
+                    key_points=item["summary_key_points"],
+                    quick_revision_notes=item["material_content"],
+                    quiz_questions=[{
+                        "question": item["question"],
+                        "options": item["options"],
+                        "correct_option": item["correct"],
+                        "explanation": item["explanation"],
+                    }],
+                    is_ai_generated=False,
+                ))
+
         mock_test_title = "Diploma Computer Engineering Semester III Mock Test"
         mock_test = db.query(Test).filter(
             Test.title == mock_test_title,
@@ -314,7 +386,7 @@ def seed_diploma_computer_sem3():
         db.commit()
         print(
             f"Seeded {len(COURSES)} {REVISION} Computer Engineering Semester III "
-            "subjects, practice quizzes, study resources, and one mock test."
+            "subjects, practice quizzes, study resources, course summaries, and one mock test."
         )
     finally:
         db.close()

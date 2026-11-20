@@ -25,12 +25,16 @@ function CourseSummaries({ user }) {
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const summarySubjects = [...new Set(summaries.map((summary) => summary.subject).filter(Boolean))];
+  const visibleSummaries = selectedSubject === "All"
+    ? summaries
+    : summaries.filter((summary) => summary.subject === selectedSubject);
+
   const fetchSummaries = async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = selectedSubject !== "All" ? { subject: selectedSubject } : {};
-      const res = await api.get("/summaries", { params });
+      const res = await api.get("/summaries");
       setSummaries(res.data);
     } catch (err) {
       console.error(err);
@@ -42,7 +46,7 @@ function CourseSummaries({ user }) {
 
   useEffect(() => {
     fetchSummaries();
-  }, [selectedSubject]);
+  }, []);
 
   const handleOpenReviseModal = (sum) => {
     setActiveSummary(sum);
@@ -112,14 +116,14 @@ function CourseSummaries({ user }) {
         <div>
           <h2>📖 Course Summaries & High-Yield Quick Revision</h2>
           <p className="page-subtitle">
-            Synthesized core points for Biology, Mathematics, Computer Science, and rapid retention quizzes.
+            Revision summaries and quick quizzes matched to your current course and semester.
           </p>
         </div>
       </div>
 
       {/* Subject Tabs */}
       <div className="subject-tabs-bar">
-        {["All", "Biology", "Mathematics", "Computer Science"].map((subj) => (
+        {["All", ...summarySubjects].map((subj) => (
           <button
             key={subj}
             className={`subj-tab ${selectedSubject === subj ? "active" : ""}`}
@@ -134,19 +138,22 @@ function CourseSummaries({ user }) {
         <LoadingSpinner message="Loading course summaries..." />
       ) : error ? (
         <ErrorMessage error={error} onRetry={fetchSummaries} />
-      ) : summaries.length === 0 ? (
+      ) : visibleSummaries.length === 0 ? (
         <EmptyState
           icon="📚"
-          title="No summaries found"
-          message="Course summaries will appear here as teachers add them."
+          title="No course summaries found"
+          message="Summaries for your course and semester will appear here when available."
         />
       ) : (
         <div className="summaries-grid">
-          {summaries.map((sum) => (
+          {visibleSummaries.map((sum) => (
             <div key={sum.id} className="summary-card">
               <div className="summary-card-top">
                 <span className="summary-subj-badge">{sum.subject}</span>
                 <span className="summary-topic-badge">📌 {sum.topic}</span>
+                {sum.academic_year && (
+                  <span className="summary-topic-badge">{sum.academic_year}</span>
+                )}
               </div>
 
               <h3 className="summary-title">{sum.title}</h3>

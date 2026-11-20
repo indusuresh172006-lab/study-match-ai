@@ -165,7 +165,7 @@ CREATE DATABASE studymatch_db;
    ```powershell
    python -m alembic upgrade head
    ```
-   Existing databases stamped at revision `6f2c1a8d4e90` are recognized and their partially applied course-syllabus schema is reconciled by the latest migration.
+   The migration chain reconciles partially applied course-syllabus schema and adds course scope to mock tests and summaries.
 
 5. **Seed Sample Data**:
    ```powershell
@@ -173,7 +173,7 @@ CREATE DATABASE studymatch_db;
    python seed_phase1.py
    python seed_diploma_computer_sem3.py
    ```
-   `seed_phase1.py` also upserts diploma lateral-entry guidance when rerun, even if the general guidance catalogue was already seeded. `seed_diploma_computer_sem3.py` adds the SITTTR Revision 2021 Computer Engineering Semester III course list, starter practice topics and quizzes, a course-scoped mock test, and separate study notes for Polytechnic College Kannur. The course list is from the official SITTTR catalog; teachers should verify the starter topics and questions against the detailed syllabus. Mock tests can be scoped to a course, institution, and semester; all three fields must be provided together.
+   `seed_phase1.py` also upserts diploma lateral-entry guidance when rerun, even if the general guidance catalogue was already seeded. `seed_diploma_computer_sem3.py` adds the SITTTR Revision 2021 Computer Engineering Semester III course list, starter practice topics and quizzes, a course-scoped mock test, course summaries, and separate study notes for Polytechnic College Kannur. The course list is from the official SITTTR catalog; teachers should verify the starter topics and questions against the detailed syllabus. Mock tests and summaries are scoped to a course, institution, and semester.
 
 6. **Start the FastAPI Server**:
    ```powershell
