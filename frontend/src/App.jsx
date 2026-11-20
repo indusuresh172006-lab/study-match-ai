@@ -16,6 +16,7 @@ import AIMentor from "./pages/AIMentor";
 import MockTests from "./pages/MockTests";
 import CourseSummaries from "./pages/CourseSummaries";
 import PreviousPapers from "./pages/PreviousPapers";
+import StudentProfile from "./pages/StudentProfile";
 import TeacherDashboard from "./pages/TeacherDashboard";
 
 function App() {
@@ -83,6 +84,19 @@ function App() {
               </Layout>
             ) : (
               <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            user && user.role === "student" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <StudentProfile user={user} />
+              </Layout>
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
             )
           }
         />

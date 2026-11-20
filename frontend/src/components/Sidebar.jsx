@@ -16,6 +16,10 @@ function Sidebar({ user }) {
     { to: "/papers", label: "Previous Papers", icon: "📄" },
   ];
 
+  if (!isTeacher) {
+    navItems.splice(1, 0, { to: "/profile", label: "My Profile", icon: "👤" });
+  }
+
   if (isTeacher) {
     navItems.push({ to: "/teacher", label: "Teacher Dashboard", icon: "👨‍🏫" });
     navItems.push({ to: "/teacher/manage", label: "Manage Content", icon: "🛠️" });

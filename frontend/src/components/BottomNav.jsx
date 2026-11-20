@@ -12,6 +12,10 @@ function BottomNav({ user }) {
     { to: "/papers", label: "Papers", icon: "📄" },
   ];
 
+  if (!isTeacher) {
+    navItems.push({ to: "/profile", label: "Profile", icon: "👤" });
+  }
+
   if (isTeacher) {
     navItems[4] = { to: "/teacher/manage", label: "Manage", icon: "🛠️" };
     navItems[5] = { to: "/teacher", label: "Teacher", icon: "👨‍🏫" };
