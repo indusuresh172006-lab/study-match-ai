@@ -6623,3 +6623,15 @@ body {
     min-height: 44px;
   }
 }
+
+@media (max-width: 768px) {
+  .floating-chat-trigger {
+    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .floating-chat-window {
+    bottom: calc(132px + env(safe-area-inset-bottom));
+    max-height: calc(100vh - 220px);
+    max-height: calc(100dvh - 220px);
+  }
+}
