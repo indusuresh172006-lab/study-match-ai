@@ -6730,4 +6730,37 @@ body {
   .student-layout .layout-main-content {
     padding: 16px 14px 104px;
   }
+
+  .student-layout .welcome-banner {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    text-align: center;
+  }
+
+  .student-layout .welcome-text,
+  .student-layout .welcome-actions {
+    width: 100%;
+  }
+
+  .student-layout .profile-meta-tags {
+    justify-content: center;
+  }
+
+  .student-layout .meta-tag {
+    max-width: 100%;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .student-layout .welcome-actions {
+    align-items: center;
+  }
+
+  .student-layout .welcome-actions > button {
+    width: 100%;
+    max-width: 320px;
+    justify-content: center;
+  }
 }
