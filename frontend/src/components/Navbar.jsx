@@ -1,7 +1,19 @@
-function Navbar({ user, onLogout }) {
+function Navbar({ user, onLogout, mobileMenuOpen, onMenuToggle }) {
   return (
     <header className="app-navbar">
       <div className="navbar-brand">
+        {user?.role !== "teacher" && (
+          <button
+            className="mobile-menu-toggle"
+            type="button"
+            onClick={onMenuToggle}
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="student-mobile-sidebar"
+          >
+            <span aria-hidden="true">{mobileMenuOpen ? "×" : "☰"}</span>
+          </button>
+        )}
         <img className="brand-logo" src="/flint-logo.jpeg" alt="FLINT education logo" />
         <div className="brand-titles">
           <h1>FLINT</h1>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
@@ -8,12 +9,22 @@ function Layout({ user, onLogout, children }) {
   const location = useLocation();
   const isMentorPage = location.pathname === "/mentor";
   const isTeacher = user?.role === "teacher";
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className={`app-layout ${isTeacher ? "teacher-layout" : "student-layout"}`}>
-      <Navbar user={user} onLogout={onLogout} />
+      <Navbar
+        user={user}
+        onLogout={onLogout}
+        mobileMenuOpen={mobileMenuOpen}
+        onMenuToggle={() => setMobileMenuOpen((open) => !open)}
+      />
       <div className="layout-body">
-        <Sidebar user={user} />
+        <Sidebar
+          user={user}
+          mobileOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+        />
         <main className="layout-main-content">
           {children}
         </main>
