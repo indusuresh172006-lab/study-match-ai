@@ -9,6 +9,10 @@ class StudentRegister(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6)
     role: Optional[str] = "student" # 'student' or 'teacher'
+    course: Optional[str] = Field(None, max_length=100)
+    college: Optional[str] = Field(None, max_length=150)
+    semester: Optional[str] = Field(None, max_length=20)
+    class_code: Optional[str] = Field(None, max_length=16)
 
 
 class StudentLogin(BaseModel):
@@ -40,10 +44,20 @@ class ProfileCreate(BaseModel):
     stream: str
     academic_level: str
     learning_goal: str
+    college: Optional[str] = None
+    semester: Optional[str] = None
 
 
-class ProfileResponse(ProfileCreate):
+class ProfileResponse(BaseModel):
     id: int
+    student_id: int
+    course: Optional[str] = None
+    stream: Optional[str] = None
+    academic_level: Optional[str] = None
+    learning_goal: Optional[str] = None
+    college: Optional[str] = None
+    semester: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -76,6 +90,9 @@ class StudyMaterialBase(BaseModel):
     title: str = Field(..., min_length=3, max_length=200)
     subject: str
     topic: str
+    course: Optional[str] = Field(None, max_length=100)
+    curriculum: Optional[str] = Field(None, max_length=150)
+    academic_year: Optional[str] = Field(None, max_length=20)
     material_type: str # 'notes', 'learning_material', 'important_questions', 'topic_resource'
     content: str
     summary: Optional[str] = None
@@ -90,6 +107,9 @@ class StudyMaterialUpdate(BaseModel):
     title: Optional[str] = None
     subject: Optional[str] = None
     topic: Optional[str] = None
+    course: Optional[str] = Field(None, max_length=100)
+    curriculum: Optional[str] = Field(None, max_length=150)
+    academic_year: Optional[str] = Field(None, max_length=20)
     material_type: Optional[str] = None
     content: Optional[str] = None
     summary: Optional[str] = None

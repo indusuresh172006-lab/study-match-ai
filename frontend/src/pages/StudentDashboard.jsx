@@ -108,6 +108,8 @@ function StudentDashboard({ user }) {
           </p>
           <div className="profile-meta-tags">
             {profile?.course && <span className="meta-tag">📘 {profile.course}</span>}
+            {profile?.college && <span className="meta-tag">🏫 {profile.college}</span>}
+            {profile?.semester && <span className="meta-tag">📅 {profile.semester}</span>}
             {profile?.stream && <span className="meta-tag">🔬 {profile.stream}</span>}
             {profile?.academic_level && (
               <span className="meta-tag">🎯 {profile.academic_level}</span>
@@ -126,6 +128,12 @@ function StudentDashboard({ user }) {
             onClick={() => navigate("/mentor")}
           >
             🤖 Chat with AI Mentor
+          </button>
+          <button
+            className="action-btn-secondary"
+            onClick={() => navigate("/guidance")}
+          >
+            🎓 Explore Higher Studies & Scholarships
           </button>
         </div>
       </section>

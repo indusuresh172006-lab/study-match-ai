@@ -9,7 +9,8 @@ from database import engine, Base, get_db
 from models import (
     Student, StudentProfile, SkillProfile, StudyMaterial, MaterialBookmark,
     QuestionBank, MockTest, MockTestResponse, PreviousPaper, PaperQuestion,
-    PaperAttempt, GuidanceCourse, InterestProfile, CourseSummary, MentorChatMessage
+    PaperAttempt, GuidanceCourse, InterestProfile, CourseSummary, MentorChatMessage,
+    StudyClass, ClassEnrollment
 )
 from schemas import (
     StudentRegister, StudentLogin, StudentResponse, TokenResponse,
@@ -31,7 +32,7 @@ from auth import (
 from ai_mentor import get_mentor_response
 
 # Core & Module routers
-from routers import auth, academic, quiz, groups, revision, guidance, mock_tests_v2, chatbot
+from routers import auth, academic, quiz, groups, revision, guidance, mock_tests_v2, chatbot, classes
 
 # Initialize database schema if not present
 Base.metadata.create_all(bind=engine)
@@ -53,6 +54,7 @@ app.add_middleware(
 
 # Mount all modular routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Module 1 - Authentication"])
+app.include_router(classes.router, prefix="/api/v1", tags=["Classes & Marks"])
 app.include_router(academic.router, prefix="/api/v1", tags=["Module 3 - Subject & Topic Management"])
 app.include_router(quiz.router, prefix="/api/v1", tags=["Module 4 & 5 - Diagnostic Quiz & ML Prediction"])
 app.include_router(groups.router, prefix="/api/v1", tags=["Module 7, 8 & 9 - Intelligent Study Groups & Schedules"])
@@ -78,6 +80,18 @@ def home():
 
 @app.post("/register", response_model=StudentResponse)
 def register_student(payload: StudentRegister, db: Session = Depends(get_db)):
+    study_class = None
+    if payload.class_code and payload.class_code.strip():
+        study_class = db.query(StudyClass).filter(
+            StudyClass.join_code == payload.class_code.strip().upper(),
+            StudyClass.is_active.is_(True),
+        ).first()
+        if not study_class:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Class code is invalid or inactive.",
+            )
+
     existing = db.query(Student).filter(Student.email == payload.email).first()
     if existing:
         raise HTTPException(
@@ -98,6 +112,14 @@ def register_student(payload: StudentRegister, db: Session = Depends(get_db)):
 
     # Initialize default skill profiles if role is student
     if user_role == "student":
+        db.add(StudentProfile(
+            student_id=new_user.id,
+            course=study_class.course if study_class else (payload.course or "General"),
+            college=study_class.curriculum if study_class else payload.college,
+            semester=study_class.academic_year if study_class else payload.semester,
+        ))
+        if study_class:
+            db.add(ClassEnrollment(class_id=study_class.id, student_id=new_user.id))
         default_topics = [
             ("Biology", "Genetics & DNA"),
             ("Biology", "Cell Biology"),
@@ -160,6 +182,10 @@ def create_or_update_profile(
         existing_profile.stream = profile.stream
         existing_profile.academic_level = profile.academic_level
         existing_profile.learning_goal = profile.learning_goal
+        if profile.college is not None:
+            existing_profile.college = profile.college
+        if profile.semester is not None:
+            existing_profile.semester = profile.semester
         db.commit()
         db.refresh(existing_profile)
         return existing_profile
@@ -169,7 +195,9 @@ def create_or_update_profile(
         course=profile.course,
         stream=profile.stream,
         academic_level=profile.academic_level,
-        learning_goal=profile.learning_goal
+        learning_goal=profile.learning_goal,
+        college=profile.college,
+        semester=profile.semester,
     )
     db.add(new_profile)
     db.commit()
@@ -251,6 +279,29 @@ def get_skill_summary(
 # 3. FEATURE 1: STUDY MATERIALS
 # =====================================================================
 
+def _scope_materials_to_student(query, current_user: Student, db: Session):
+    if current_user.role != "student":
+        return query
+
+    profile = db.query(StudentProfile).filter(
+        StudentProfile.student_id == current_user.id
+    ).first()
+    if not profile:
+        return query.filter(StudyMaterial.id == -1)
+
+    course = (profile.course or "").strip().lower()
+    curriculum = (profile.college or "").strip().lower()
+    academic_year = (profile.semester or "").strip().lower()
+    if not course or not curriculum or not academic_year:
+        return query.filter(StudyMaterial.id == -1)
+
+    return query.filter(
+        func.lower(func.trim(StudyMaterial.course)) == course,
+        func.lower(func.trim(StudyMaterial.curriculum)) == curriculum,
+        func.lower(func.trim(StudyMaterial.academic_year)) == academic_year,
+    )
+
+
 @app.get("/materials", response_model=StudyMaterialListResponse)
 def list_study_materials(
     subject: Optional[str] = None,
@@ -263,7 +314,7 @@ def list_study_materials(
     current_user: Student = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(StudyMaterial)
+    query = _scope_materials_to_student(db.query(StudyMaterial), current_user, db)
 
     if subject and subject != "All":
         query = query.filter(StudyMaterial.subject == subject)
@@ -331,13 +382,24 @@ def list_study_materials(
     )
 
 
+@app.get("/materials/subjects", response_model=List[str])
+def list_study_material_subjects(
+    current_user: Student = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = _scope_materials_to_student(db.query(StudyMaterial.subject), current_user, db)
+    return [subject for (subject,) in query.distinct().order_by(StudyMaterial.subject).all()]
+
+
 @app.get("/materials/{material_id}", response_model=StudyMaterialResponse)
 def get_study_material(
     material_id: int,
     current_user: Student = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    material = db.query(StudyMaterial).filter(StudyMaterial.id == material_id).first()
+    material = _scope_materials_to_student(
+        db.query(StudyMaterial), current_user, db
+    ).filter(StudyMaterial.id == material_id).first()
     if not material:
         raise HTTPException(status_code=404, detail="Study material not found")
 
@@ -368,6 +430,9 @@ def create_study_material(
         title=payload.title,
         subject=payload.subject,
         topic=payload.topic,
+        course=payload.course.strip() if payload.course and payload.course.strip() else None,
+        curriculum=payload.curriculum.strip() if payload.curriculum and payload.curriculum.strip() else None,
+        academic_year=payload.academic_year.strip() if payload.academic_year and payload.academic_year.strip() else None,
         material_type=payload.material_type,
         content=payload.content,
         summary=payload.summary,

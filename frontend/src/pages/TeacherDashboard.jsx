@@ -235,9 +235,9 @@ function TeacherDashboard({ user }) {
       <section className="teacher-section-card" style={{ marginBottom: "28px" }}>
         <div className="card-head-row">
           <div>
-            <h3>🤝 Student Career & Higher Studies Counselling Queue</h3>
+            <h3>🤝 Student Study Support & Higher Studies Requests</h3>
             <p className="subtext">
-              Direct student inquiries regarding course options, entrance exams, and career pathways
+              Review teacher-led study requests, peer-match needs, and questions about courses, exams, and career pathways.
             </p>
           </div>
           <button
@@ -258,6 +258,7 @@ function TeacherDashboard({ user }) {
               <thead>
                 <tr>
                   <th>Student</th>
+                  <th>Request Type</th>
                   <th>Preferred Mode</th>
                   <th>Doubt / Question</th>
                   <th>Submitted</th>
@@ -272,6 +273,7 @@ function TeacherDashboard({ user }) {
                     <td>
                       <strong>{req.student_name || `Student #${req.student_id}`}</strong>
                     </td>
+                    <td>{req.request_type === "study_support" ? "Study support" : "Higher studies"}</td>
                     <td>
                       <span className="mode-badge">📍 {req.preferred_mode}</span>
                     </td>
@@ -313,7 +315,7 @@ function TeacherDashboard({ user }) {
           <div>
             <h3>👥 Balanced Study Groups & Peer-Teaching Coverage (Module 7 & 8)</h3>
             <p className="subtext">
-              Optimization algorithm matches 3–5 students per group ensuring weak topics are covered by peers with strong mastery
+              Matches students within the same course, board/institution, and year/semester so peers with strong mastery can help with weak topics.
             </p>
           </div>
           <button
@@ -329,7 +331,7 @@ function TeacherDashboard({ user }) {
           <p>Analyzing student skill profiles and matching groups...</p>
         ) : studyGroups.length === 0 ? (
           <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-            No study groups generated yet. Click "Re-Run Intelligent Grouping" above to partition the class into balanced study groups.
+            No peer groups are available yet. Generate groups to match students who share a course, board/institution, and year/semester.
           </p>
         ) : (
           <div className="class-topics-table-wrapper">

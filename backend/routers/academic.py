@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -45,6 +45,9 @@ class SubjectBase(BaseModel):
     name: str
     code: Optional[str] = None
     description: Optional[str] = None
+    course: Optional[str] = Field(None, max_length=100)
+    curriculum: Optional[str] = Field(None, max_length=150)
+    academic_year: Optional[str] = Field(None, max_length=20)
 
 
 class SubjectCreate(SubjectBase):
@@ -55,6 +58,9 @@ class SubjectUpdate(BaseModel):
     name: Optional[str] = None
     code: Optional[str] = None
     description: Optional[str] = None
+    course: Optional[str] = Field(None, max_length=100)
+    curriculum: Optional[str] = Field(None, max_length=150)
+    academic_year: Optional[str] = Field(None, max_length=20)
 
 
 class SubjectOut(SubjectBase):
@@ -71,11 +77,25 @@ class SubjectOut(SubjectBase):
 # ─────────────────────────────────────────────
 
 @router.get("/subjects", response_model=List[SubjectOut])
-def list_subjects(db: Session = Depends(get_db)):
+def list_subjects(
+    course: Optional[str] = None,
+    curriculum: Optional[str] = None,
+    academic_year: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     """
     List all academic subjects along with their registered topics and question counts.
     """
-    subjects = db.query(Subject).order_by(Subject.name).all()
+    query = db.query(Subject)
+    if course and course.strip():
+        query = query.filter(func.lower(func.trim(Subject.course)) == course.strip().lower())
+    if curriculum and curriculum.strip():
+        query = query.filter(func.lower(func.trim(Subject.curriculum)) == curriculum.strip().lower())
+    if academic_year and academic_year.strip():
+        query = query.filter(
+            func.lower(func.trim(Subject.academic_year)) == academic_year.strip().lower()
+        )
+    subjects = query.order_by(Subject.name).all()
     results = []
 
     for s in subjects:
@@ -95,6 +115,9 @@ def list_subjects(db: Session = Depends(get_db)):
             name=s.name,
             code=s.code,
             description=s.description,
+            course=s.course,
+            curriculum=s.curriculum,
+            academic_year=s.academic_year,
             topic_count=len(topics_out),
             topics=topics_out,
         ))
@@ -113,7 +136,15 @@ def create_subject(
     """
     require_teacher(current_user)
     name_clean = req.name.strip()
-    existing = db.query(Subject).filter(Subject.name.ilike(name_clean)).first()
+    course = req.course.strip() if req.course and req.course.strip() else ""
+    curriculum = req.curriculum.strip() if req.curriculum and req.curriculum.strip() else ""
+    academic_year = req.academic_year.strip() if req.academic_year and req.academic_year.strip() else ""
+    existing = db.query(Subject).filter(
+        func.lower(Subject.name) == name_clean.lower(),
+        func.lower(func.coalesce(Subject.course, "")) == course.lower(),
+        func.lower(func.coalesce(Subject.curriculum, "")) == curriculum.lower(),
+        func.lower(func.coalesce(Subject.academic_year, "")) == academic_year.lower(),
+    ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -124,6 +155,9 @@ def create_subject(
         name=name_clean,
         code=req.code.strip() if req.code else None,
         description=req.description.strip() if req.description else None,
+        course=course or None,
+        curriculum=curriculum or None,
+        academic_year=academic_year or None,
     )
     db.add(new_sub)
     db.commit()
@@ -134,6 +168,9 @@ def create_subject(
         name=new_sub.name,
         code=new_sub.code,
         description=new_sub.description,
+        course=new_sub.course,
+        curriculum=new_sub.curriculum,
+        academic_year=new_sub.academic_year,
         topic_count=0,
         topics=[],
     )
@@ -168,6 +205,9 @@ def get_subject_detail(subject_id: int, db: Session = Depends(get_db)):
         name=sub.name,
         code=sub.code,
         description=sub.description,
+        course=sub.course,
+        curriculum=sub.curriculum,
+        academic_year=sub.academic_year,
         topic_count=len(topics_out),
         topics=topics_out,
     )
@@ -188,12 +228,35 @@ def update_subject(
     if not sub:
         raise HTTPException(status_code=404, detail="Subject not found.")
 
+    name = req.name.strip() if req.name is not None else sub.name
+    course = req.course.strip() if req.course is not None else (sub.course or "")
+    curriculum = req.curriculum.strip() if req.curriculum is not None else (sub.curriculum or "")
+    academic_year = req.academic_year.strip() if req.academic_year is not None else (sub.academic_year or "")
+    duplicate = db.query(Subject).filter(
+        Subject.id != subject_id,
+        func.lower(Subject.name) == name.lower(),
+        func.lower(func.coalesce(Subject.course, "")) == course.lower(),
+        func.lower(func.coalesce(Subject.curriculum, "")) == curriculum.lower(),
+        func.lower(func.coalesce(Subject.academic_year, "")) == academic_year.lower(),
+    ).first()
+    if duplicate:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A subject named '{name}' already exists for this course scope.",
+        )
+
     if req.name is not None:
-        sub.name = req.name.strip()
+        sub.name = name
     if req.code is not None:
         sub.code = req.code.strip()
     if req.description is not None:
         sub.description = req.description.strip()
+    if req.course is not None:
+        sub.course = req.course.strip() or None
+    if req.curriculum is not None:
+        sub.curriculum = req.curriculum.strip() or None
+    if req.academic_year is not None:
+        sub.academic_year = req.academic_year.strip() or None
 
     db.commit()
     db.refresh(sub)

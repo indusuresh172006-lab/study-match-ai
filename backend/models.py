@@ -1,6 +1,7 @@
 import datetime
 from sqlalchemy import (
-    Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint
+    Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, JSON,
+    Index, UniqueConstraint, func,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -32,6 +33,7 @@ class Student(Base):
     counselling_requests = relationship("CounsellingRequest", foreign_keys="CounsellingRequest.student_id", back_populates="student", cascade="all, delete-orphan")
     test_attempts = relationship("TestAttempt", back_populates="student", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="student", cascade="all, delete-orphan")
+    class_enrollments = relationship("ClassEnrollment", back_populates="student", cascade="all, delete-orphan")
 
 
 class StudentProfile(Base):
@@ -65,6 +67,75 @@ class TeacherProfile(Base):
     teacher = relationship("Student", foreign_keys=[teacher_id])
 
 
+class StudyClass(Base):
+    __tablename__ = "study_classes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    join_code = Column(String(16), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    course = Column(String(100), nullable=False)
+    curriculum = Column(String(150), nullable=False)
+    academic_year = Column(String(20), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("join_code", name="uq_study_class_join_code"),
+    )
+
+    teacher = relationship("Student")
+    enrollments = relationship("ClassEnrollment", back_populates="study_class", cascade="all, delete-orphan")
+    mark_imports = relationship("MarkImportBatch", back_populates="study_class", cascade="all, delete-orphan")
+    groups = relationship("StudyGroup", back_populates="study_class")
+
+
+class ClassEnrollment(Base):
+    __tablename__ = "class_enrollments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("study_classes.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    joined_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("class_id", "student_id", name="uq_class_enrollment"),
+    )
+
+    study_class = relationship("StudyClass", back_populates="enrollments")
+    student = relationship("Student", back_populates="class_enrollments")
+
+
+class MarkImportBatch(Base):
+    __tablename__ = "mark_import_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("study_classes.id", ondelete="CASCADE"), nullable=False)
+    imported_by = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
+    filename = Column(String(255), nullable=False)
+    row_count = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    study_class = relationship("StudyClass", back_populates="mark_imports")
+    marks = relationship("ImportedMark", back_populates="batch", cascade="all, delete-orphan")
+
+
+class ImportedMark(Base):
+    __tablename__ = "imported_marks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("mark_import_batches.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    subject = Column(String(100), nullable=False)
+    topic = Column(String(100), nullable=False)
+    score = Column(Float, nullable=False)
+    max_score = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    batch = relationship("MarkImportBatch", back_populates="marks")
+    student = relationship("Student")
+
+
 class SkillProfile(Base):
     __tablename__ = "skill_profiles"
 
@@ -95,6 +166,9 @@ class StudyMaterial(Base):
     title = Column(String(200), nullable=False)
     subject = Column(String(100), nullable=False, index=True)
     topic = Column(String(100), nullable=False, index=True)
+    course = Column(String(100), nullable=True, index=True)
+    curriculum = Column(String(150), nullable=True)
+    academic_year = Column(String(20), nullable=True)
     material_type = Column(String(50), nullable=False) # 'notes', 'learning_material', 'important_questions', 'topic_resource'
     content = Column(Text, nullable=False)
     summary = Column(Text, nullable=True)
@@ -434,6 +508,7 @@ class CounsellingRequest(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     teacher_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
+    request_type = Column(String(50), default="higher_studies", nullable=False)
     message = Column(Text, nullable=False)
     preferred_mode = Column(String(50), default="Online") # Online, In-person
     status = Column(String(50), default="pending") # pending, scheduled, completed, cancelled
@@ -617,10 +692,24 @@ class Subject(Base):
     __tablename__ = "subjects"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, index=True, nullable=False)
+    name = Column(String(100), index=True, nullable=False)
     code = Column(String(30), nullable=True)
     description = Column(Text, nullable=True)
+    course = Column(String(100), nullable=True, index=True)
+    curriculum = Column(String(150), nullable=True)
+    academic_year = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        Index(
+            "uq_subject_course_scope",
+            func.lower(name),
+            func.lower(func.coalesce(course, "")),
+            func.lower(func.coalesce(curriculum, "")),
+            func.lower(func.coalesce(academic_year, "")),
+            unique=True,
+        ),
+    )
 
     topics = relationship("Topic", back_populates="subject", cascade="all, delete-orphan")
 
@@ -710,10 +799,14 @@ class StudyGroup(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    class_id = Column(Integer, ForeignKey("study_classes.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
     subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
-    status = Column(String(20), default="active") # 'active', 'completed', 'archived'
+    status = Column(String(20), default="pending") # 'pending', 'active', 'completed', 'archived'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    study_class = relationship("StudyClass", back_populates="groups")
+    creator = relationship("Student")
     members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
     teaching_pairs = relationship("TeachingPair", back_populates="group", cascade="all, delete-orphan")
 
@@ -738,7 +831,7 @@ class TeachingPair(Base):
     group_id = Column(Integer, ForeignKey("study_groups.id", ondelete="CASCADE"), nullable=False)
     tutor_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     learner_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
-    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="SET NULL"), nullable=True)
     reason = Column(Text, nullable=True)
     status = Column(String(20), default="recommended") # 'recommended', 'accepted', 'completed'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -757,6 +850,7 @@ class StudySchedule(Base):
     day_of_week = Column(String(20), nullable=False) # 'Monday', 'Tuesday', etc.
     start_time = Column(String(10), nullable=False) # '17:00'
     end_time = Column(String(10), nullable=False)   # '19:00'
+    study_mode = Column(String(20), default="online", nullable=False)  # online, offline, either
     is_available = Column(Boolean, default=True)
 
     student = relationship("Student")

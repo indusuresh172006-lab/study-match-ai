@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorMessage from "../components/ErrorMessage";
 
-function TopicQuiz({ user }) {
+function TopicQuiz() {
   const [subjects, setSubjects] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [scopeForm, setScopeForm] = useState({ course: "", college: "", semester: "" });
+  const [savingScope, setSavingScope] = useState(false);
+  const [scopeMessage, setScopeMessage] = useState("");
+  const [scopeError, setScopeError] = useState("");
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [error, setError] = useState(null);
 
@@ -25,21 +30,74 @@ function TopicQuiz({ user }) {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionNotes, setRevisionNotes] = useState(null);
   const [loadingRevision, setLoadingRevision] = useState(false);
+  const hasCourseScope = Boolean(
+    profile?.course?.trim() && profile?.college?.trim() && profile?.semester?.trim()
+  );
 
-  useEffect(() => {
-    fetchSubjects();
-  }, []);
-
-  const fetchSubjects = async () => {
-    setLoadingSubjects(true);
+  const fetchSubjects = useCallback(async () => {
     try {
-      const res = await api.get("/api/v1/subjects");
+      const profileRes = await api.get("/profile/me");
+      setError(null);
+      const studentProfile = profileRes.data;
+      setProfile(studentProfile);
+      setScopeForm({
+        course: studentProfile.course || "",
+        college: studentProfile.college || "",
+        semester: studentProfile.semester || "",
+      });
+
+      if (
+        !studentProfile?.course?.trim() ||
+        !studentProfile?.college?.trim() ||
+        !studentProfile?.semester?.trim()
+      ) {
+        setSubjects([]);
+        return;
+      }
+
+      const res = await api.get("/api/v1/subjects", {
+        params: {
+          course: studentProfile.course,
+          curriculum: studentProfile.college,
+          academic_year: studentProfile.semester,
+        },
+      });
       setSubjects(res.data || []);
     } catch (err) {
       console.error("Error fetching subjects:", err);
       setError("Failed to load subjects and topics.");
     } finally {
       setLoadingSubjects(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubjects();
+  }, [fetchSubjects]);
+
+  const handleUpdateCourseScope = async (e) => {
+    e.preventDefault();
+    setSavingScope(true);
+    setScopeMessage("");
+    setScopeError("");
+    try {
+      await api.put("/api/v1/auth/profile", {
+        course: scopeForm.course.trim(),
+        college: scopeForm.college.trim(),
+        semester: scopeForm.semester.trim(),
+      });
+      setScopeMessage("Course details saved. Reloading your matching syllabus...");
+      await fetchSubjects();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const message = Array.isArray(detail)
+        ? detail.map((item) => item.msg || "Invalid course details").join("; ")
+        : typeof detail === "string"
+          ? detail
+          : "Could not update your course details. Please try again.";
+      setScopeError(message);
+    } finally {
+      setSavingScope(false);
     }
   };
 
@@ -112,6 +170,9 @@ function TopicQuiz({ user }) {
 
   if (loadingSubjects) {
     return <LoadingSpinner message="Loading academic curriculum..." />;
+  }
+  if (quizLoading) {
+    return <LoadingSpinner message="Loading your topic quiz..." />;
   }
 
   // ─────────────────────────────────────────────
@@ -454,15 +515,67 @@ function TopicQuiz({ user }) {
         <div>
           <h2>🎯 Topic-Wise Diagnostic Quizzes</h2>
           <p>
-            Select any subject and topic to test your conceptual understanding.
-            Your answers are evaluated using a Random Forest ML Classifier to
-            update your Skill Profile and study group matchings.
+            {hasCourseScope
+              ? `Teacher-approved syllabus for ${profile.course} - ${profile.college} - ${profile.semester}. `
+              : "Course, board/institution, and year/semester are needed to load the right syllabus. "}
+            Your answers update your skill profile and peer-study matches.
           </p>
         </div>
       </div>
 
-      {error && <ErrorMessage message={error} />}
+      {error && <ErrorMessage error={error} onRetry={fetchSubjects} />}
 
+      {subjects.length === 0 ? (
+          <div className="syllabus-empty-card" role="status">
+            <div className="syllabus-empty-icon">📘</div>
+            <h3>{hasCourseScope ? "No matching syllabus published yet" : "Complete your course details first"}</h3>
+            <p>
+              {hasCourseScope
+                ? `No syllabus currently matches ${profile.course}, ${profile.college}, ${profile.semester}. Your teacher must tag the syllabus with these exact course details.`
+                : "A course, board/institution, and year/semester are required to prevent unrelated course content from appearing."}
+            </p>
+            <form className="course-scope-form" onSubmit={handleUpdateCourseScope}>
+              <label>
+                Course / program
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={scopeForm.course}
+                  onChange={(e) => setScopeForm({ ...scopeForm, course: e.target.value })}
+                  placeholder="e.g. Diploma in Civil Engineering"
+                  required
+                />
+              </label>
+              <label>
+                Board / institution
+                <input
+                  type="text"
+                  maxLength={150}
+                  value={scopeForm.college}
+                  onChange={(e) => setScopeForm({ ...scopeForm, college: e.target.value })}
+                  placeholder="e.g. Polytechnic College Kannur"
+                  required
+                />
+              </label>
+              <label>
+                Year / semester
+                <input
+                  type="text"
+                  maxLength={20}
+                  value={scopeForm.semester}
+                  onChange={(e) => setScopeForm({ ...scopeForm, semester: e.target.value })}
+                  placeholder="e.g. 3rd Semester"
+                  required
+                />
+              </label>
+              <button className="action-btn-primary" type="submit" disabled={savingScope}>
+                {savingScope ? "Saving..." : "Save details and reload"}
+              </button>
+            </form>
+            {scopeMessage && <p className="scope-feedback" role="status">{scopeMessage}</p>}
+            {scopeError && <p className="auth-error-msg" role="alert">{scopeError}</p>}
+          </div>
+      ) : (
       <div className="curriculum-subjects-list">
         {subjects.map((sub) => (
           <div key={sub.id} className="subject-curriculum-card">
@@ -471,6 +584,9 @@ function TopicQuiz({ user }) {
                 <span className="subject-code-tag">{sub.code || "CURR"}</span>
                 <h3 className="subject-title">{sub.name}</h3>
                 <p className="subject-desc">{sub.description}</p>
+                <p className="subject-desc">
+                  {[sub.course, sub.curriculum, sub.academic_year].filter(Boolean).join(" · ")}
+                </p>
               </div>
               <span className="topic-count-pill">
                 {sub.topic_count} Topics
@@ -490,14 +606,18 @@ function TopicQuiz({ user }) {
 
                     <div className="topic-action-row">
                       <span className="q-count-text">
-                        📝 {t.question_count || 3} Questions
+                        📝 {t.question_count ?? 0} Questions
                       </span>
-                      <button
-                        className="action-btn-primary btn-sm"
-                        onClick={() => handleStartQuiz(t)}
-                      >
-                        Start Quiz &rarr;
-                      </button>
+                      {t.question_count > 0 ? (
+                        <button
+                          className="action-btn-primary btn-sm"
+                          onClick={() => handleStartQuiz(t)}
+                        >
+                          Start Quiz &rarr;
+                        </button>
+                      ) : (
+                        <span className="empty-subtext">Questions not published yet</span>
+                      )}
                     </div>
                   </div>
                 ))
@@ -508,6 +628,7 @@ function TopicQuiz({ user }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

@@ -13,7 +13,14 @@ function errorText(err, fallback) {
   return fallback;
 }
 
-const EMPTY_SUBJECT = { name: "", code: "", description: "" };
+const EMPTY_SUBJECT = {
+  name: "",
+  code: "",
+  description: "",
+  course: "",
+  curriculum: "",
+  academic_year: "",
+};
 const EMPTY_TOPIC = { name: "", order_index: 0, description: "" };
 const EMPTY_QUESTION = {
   question_text: "",
@@ -121,6 +128,9 @@ function TeacherManagement() {
         name: form.name.trim(),
         code: form.code?.trim() || null,
         description: form.description?.trim() || null,
+        course: form.course?.trim() || "",
+        curriculum: form.curriculum?.trim() || "",
+        academic_year: form.academic_year?.trim() || "",
       };
       if (id) await api.put(`/api/v1/subjects/${id}`, body);
       else await api.post("/api/v1/subjects", body);
@@ -274,7 +284,10 @@ function TeacherManagement() {
       <div className="page-header-row">
         <div>
           <h2>🛠️ Content Management</h2>
-          <p className="page-subtitle">Manage subjects, topics and quiz questions used by students.</p>
+          <p className="page-subtitle">
+            Manage teacher-curated syllabi and quiz questions. Match the course,
+            board/institution, and year/semester to students' registration details.
+          </p>
         </div>
       </div>
 
@@ -311,19 +324,28 @@ function TeacherManagement() {
             <div className="class-topics-table-wrapper">
               <table className="teacher-table">
                 <thead>
-                  <tr><th>Name</th><th>Code</th><th>Topics</th><th>Description</th><th>Actions</th></tr>
+                  <tr><th>Subject</th><th>Course</th><th>Board / Institution</th><th>Year / Semester</th><th>Topics</th><th>Description</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {subjects.map((s) => (
                     <tr key={s.id}>
                       <td><strong>{s.name}</strong></td>
-                      <td>{s.code || "—"}</td>
+                      <td>{s.course || "Not scoped"}{s.code ? ` (${s.code})` : ""}</td>
+                      <td>{s.curriculum || "Not scoped"}</td>
+                      <td>{s.academic_year || "Not scoped"}</td>
                       <td>{s.topic_count}</td>
                       <td>{s.description || "—"}</td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         <button
                           className="action-btn-secondary btn-sm"
-                          onClick={() => setSubjectModal({ id: s.id, form: { name: s.name, code: s.code || "", description: s.description || "" } })}
+                          onClick={() => setSubjectModal({ id: s.id, form: {
+                            name: s.name,
+                            code: s.code || "",
+                            description: s.description || "",
+                            course: s.course || "",
+                            curriculum: s.curriculum || "",
+                            academic_year: s.academic_year || "",
+                          } })}
                         >Edit</button>{" "}
                         <button className="action-btn-danger btn-sm" onClick={() => deleteSubject(s)}>Delete</button>
                       </td>
@@ -473,6 +495,28 @@ function TeacherManagement() {
                 <input className="search-input" style={{ width: "100%" }} value={subjectModal.form.code}
                   onChange={(e) => setSubjectModal({ ...subjectModal, form: { ...subjectModal.form, code: e.target.value } })} />
               </div>
+              <div className="form-group" style={{ marginBottom: "14px" }}>
+                <label>Course / program (exact registration value) *</label>
+                <input className="search-input" style={{ width: "100%" }} value={subjectModal.form.course}
+                  maxLength={100} required
+                  onChange={(e) => setSubjectModal({ ...subjectModal, form: { ...subjectModal.form, course: e.target.value } })} />
+              </div>
+              <div className="form-group" style={{ marginBottom: "14px" }}>
+                <label>Board / Institution (exact) *</label>
+                <input className="search-input" style={{ width: "100%" }} value={subjectModal.form.curriculum}
+                  maxLength={150} required
+                  onChange={(e) => setSubjectModal({ ...subjectModal, form: { ...subjectModal.form, curriculum: e.target.value } })} />
+              </div>
+              <div className="form-group" style={{ marginBottom: "14px" }}>
+                <label>Year / Semester (exact) *</label>
+                <input className="search-input" style={{ width: "100%" }} value={subjectModal.form.academic_year}
+                  maxLength={20} required
+                  onChange={(e) => setSubjectModal({ ...subjectModal, form: { ...subjectModal.form, academic_year: e.target.value } })} />
+              </div>
+              <p className="subtext" style={{ marginBottom: "14px" }}>
+                Students see these syllabus topics and questions only when all
+                three fields match their registration.
+              </p>
               <div className="form-group" style={{ marginBottom: "14px" }}>
                 <label>Description</label>
                 <textarea rows="3" className="search-input" style={{ width: "100%" }} value={subjectModal.form.description}

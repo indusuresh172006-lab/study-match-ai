@@ -5,8 +5,9 @@ scholarships, study abroad, checklist, deadlines, questionnaire,
 counselling requests.
 """
 import os
-from typing import List, Optional
+from typing import List, Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 import datetime
@@ -22,6 +23,11 @@ from models import (
 )
 
 router = APIRouter()
+
+class CounsellingRequestCreate(BaseModel):
+    request_type: Literal["higher_studies", "study_support"] = "higher_studies"
+    message: str = Field(..., min_length=1)
+    preferred_mode: str = "Online"
 
 
 # ─────────────────────────────────────────────
@@ -676,16 +682,30 @@ def submit_questionnaire(
 
 @router.post("/counselling", status_code=status.HTTP_201_CREATED)
 def create_counselling_request(
-    payload: dict,
+    payload: CounsellingRequestCreate,
     db: Session = Depends(get_db),
     current_user: Student = Depends(get_current_user)
 ):
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Only students can submit counselling requests")
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="A request message is required.")
+    if payload.request_type == "study_support":
+        profile = db.query(StudentProfile).filter(
+            StudentProfile.student_id == current_user.id
+        ).first()
+        if profile:
+            course_details = " / ".join(
+                value for value in (profile.course, profile.college, profile.semester) if value
+            )
+            if course_details:
+                message = f"{message}\n\nStudent course details: {course_details}"
     req = CounsellingRequest(
         student_id=current_user.id,
-        message=payload.get("message", ""),
-        preferred_mode=payload.get("preferred_mode", "Online"),
+        request_type=payload.request_type,
+        message=message,
+        preferred_mode=payload.preferred_mode,
     )
     db.add(req)
     db.commit()
@@ -715,6 +735,7 @@ def get_counselling_requests(
             "id": r.id,
             "student_id": r.student_id,
             "student_name": r.student.name if r.student else None,
+            "request_type": r.request_type,
             "message": r.message,
             "preferred_mode": r.preferred_mode,
             "status": r.status,

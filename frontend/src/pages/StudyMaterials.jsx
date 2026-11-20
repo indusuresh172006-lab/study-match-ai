@@ -10,6 +10,7 @@ function StudyMaterials({ user }) {
   const initialSearch = searchParams.get("search") || "";
 
   const [materials, setMaterials] = useState([]);
+  const [materialSubjects, setMaterialSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -28,8 +29,11 @@ function StudyMaterials({ user }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFormData, setUploadFormData] = useState({
     title: "",
-    subject: "Biology",
+    subject: "",
     topic: "",
+    course: "",
+    curriculum: "",
+    academic_year: "",
     material_type: "notes",
     difficulty_level: "medium",
     summary: "",
@@ -61,9 +65,22 @@ function StudyMaterials({ user }) {
     }
   };
 
+  const fetchMaterialSubjects = async () => {
+    try {
+      const res = await api.get("/materials/subjects");
+      setMaterialSubjects(res.data || []);
+    } catch (err) {
+      console.error("Could not load material subjects:", err);
+    }
+  };
+
   useEffect(() => {
     fetchMaterials();
   }, [subject, materialType, bookmarkedOnly, page]);
+
+  useEffect(() => {
+    fetchMaterialSubjects();
+  }, []);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -95,14 +112,17 @@ function StudyMaterials({ user }) {
       setShowUploadModal(false);
       setUploadFormData({
         title: "",
-        subject: "Biology",
+        subject: "",
         topic: "",
+        course: "",
+        curriculum: "",
+        academic_year: "",
         material_type: "notes",
         difficulty_level: "medium",
         summary: "",
         content: "",
       });
-      fetchMaterials();
+      await Promise.all([fetchMaterials(), fetchMaterialSubjects()]);
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to upload study material");
     } finally {
@@ -136,7 +156,7 @@ function StudyMaterials({ user }) {
       <div className="materials-filter-bar">
         {/* Subject Tabs */}
         <div className="subject-tabs">
-          {["All", "Biology", "Mathematics", "Computer Science"].map((subj) => (
+          {["All", ...materialSubjects].map((subj) => (
             <button
               key={subj}
               className={`tab-btn ${subject === subj ? "active" : ""}`}
@@ -202,8 +222,10 @@ function StudyMaterials({ user }) {
       ) : materials.length === 0 ? (
         <EmptyState
           icon="📂"
-          title="No materials match your filters"
-          message="Try adjusting your subject selection or clearing search keywords."
+          title={user?.role === "student" ? "No course-matched materials yet" : "No materials match your filters"}
+          message={user?.role === "student"
+            ? "Materials are filtered by your registered course, institution, and year/semester. Ask your teacher to publish resources for your syllabus."
+            : "Try adjusting your subject selection or clearing search keywords."}
           actionText="Reset Filters"
           onAction={() => {
             setSubject("All");
@@ -356,16 +378,20 @@ function StudyMaterials({ user }) {
               <div className="form-row">
                 <div className="form-col">
                   <label>Subject *</label>
-                  <select
+                  <input
+                    list="study-material-subject-options"
                     value={uploadFormData.subject}
                     onChange={(e) =>
                       setUploadFormData({ ...uploadFormData, subject: e.target.value })
                     }
-                  >
-                    <option value="Biology">Biology</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Computer Science">Computer Science</option>
-                  </select>
+                    placeholder="e.g. Applied Mathematics"
+                    required
+                  />
+                  <datalist id="study-material-subject-options">
+                    {Array.from(new Set(["Biology", "Mathematics", "Computer Science", ...materialSubjects])).map((subj) => (
+                      <option key={subj} value={subj} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="form-col">
                   <label>Topic *</label>
@@ -380,6 +406,42 @@ function StudyMaterials({ user }) {
                   />
                 </div>
               </div>
+
+              <div className="form-row">
+                <div className="form-col">
+                  <label>Course / Program (exact registration value) *</label>
+                  <input
+                    type="text"
+                    value={uploadFormData.course}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, course: e.target.value })}
+                    maxLength={100}
+                    required
+                  />
+                </div>
+                <div className="form-col">
+                  <label>Board / Institution (exact) *</label>
+                  <input
+                    type="text"
+                    value={uploadFormData.curriculum}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, curriculum: e.target.value })}
+                    maxLength={150}
+                    required
+                  />
+                </div>
+                <div className="form-col">
+                  <label>Year / Semester (exact) *</label>
+                  <input
+                    type="text"
+                    value={uploadFormData.academic_year}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, academic_year: e.target.value })}
+                    maxLength={20}
+                    required
+                  />
+                </div>
+              </div>
+              <p className="upload-scope-help">
+                Students see this resource only when all three course details match their registration.
+              </p>
 
               <div className="form-row">
                 <div className="form-col">

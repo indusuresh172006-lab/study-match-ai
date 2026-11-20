@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Student, StudentProfile, TeacherProfile
+from models import Student, StudentProfile, TeacherProfile, StudyClass, ClassEnrollment
 from auth import (
     get_password_hash,
     verify_password,
@@ -34,6 +34,7 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] = None
     course: Optional[str] = None
     learning_interests: Optional[List[str]] = None
+    class_code: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -103,6 +104,18 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
             detail="A user with this email address already exists.",
         )
 
+    study_class = None
+    if req.class_code and req.class_code.strip():
+        study_class = db.query(StudyClass).filter(
+            StudyClass.join_code == req.class_code.strip().upper(),
+            StudyClass.is_active.is_(True),
+        ).first()
+        if not study_class:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Class code is invalid or inactive.",
+            )
+
     role_clean = "student"
 
     new_user = Student(
@@ -120,14 +133,16 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
         profile = StudentProfile(
             student_id=new_user.id,
             department=req.department,
-            semester=req.semester,
-            college=req.college,
+            semester=study_class.academic_year if study_class else req.semester,
+            college=study_class.curriculum if study_class else req.college,
             phone=req.phone,
-            course=req.course or "General",
+            course=study_class.course if study_class else (req.course or "General"),
             stream=req.department or "Science/Technology",
             learning_interests=req.learning_interests or [],
         )
         db.add(profile)
+        if study_class:
+            db.add(ClassEnrollment(class_id=study_class.id, student_id=new_user.id))
         db.commit()
         db.refresh(new_user)
     else:

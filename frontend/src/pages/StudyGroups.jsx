@@ -15,6 +15,9 @@ function StudyGroups({ user }) {
   const [newStart, setNewStart] = useState("17:00");
   const [newEnd, setNewEnd] = useState("19:00");
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [requestingTeacher, setRequestingTeacher] = useState(false);
+  const [teacherRequestMessage, setTeacherRequestMessage] = useState("");
+  const [teacherRequestError, setTeacherRequestError] = useState("");
 
   // Peer-teaching view filter: 'all' | 'tutors_for_me' | 'i_can_teach'
   const [teachingFilter, setTeachingFilter] = useState("all");
@@ -75,6 +78,31 @@ function StudyGroups({ user }) {
     }
   };
 
+  const requestTeacherSupport = async (topics = []) => {
+    setRequestingTeacher(true);
+    setTeacherRequestMessage("");
+    setTeacherRequestError("");
+    try {
+      const topicSummary = topics.length ? topics.join(", ") : "course and syllabus support";
+      await api.post("/api/v1/guidance/counselling", {
+        request_type: "study_support",
+        preferred_mode: "Online",
+        message: `Please help me study ${topicSummary}. I need a teacher-led study session or peer-group match if a suitable peer is available.`,
+      });
+      setTeacherRequestMessage("Your study-support request was sent to the teacher dashboard.");
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const message = Array.isArray(detail)
+        ? detail.map((item) => item.msg || "Invalid request").join("; ")
+        : typeof detail === "string"
+          ? detail
+          : "Could not send your study-support request. Please try again.";
+      setTeacherRequestError(message);
+    } finally {
+      setRequestingTeacher(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner message="Loading your intelligent study group..." />;
   }
@@ -98,6 +126,15 @@ function StudyGroups({ user }) {
           actionText="Take a Topic Quiz"
           onAction={() => (window.location.href = "/quiz")}
         />
+        {teacherRequestMessage && <p className="all-good-msg" role="status">{teacherRequestMessage}</p>}
+        {teacherRequestError && <p className="auth-error-msg" role="alert">{teacherRequestError}</p>}
+        <button
+          className="action-btn-secondary"
+          onClick={() => requestTeacherSupport()}
+          disabled={requestingTeacher}
+        >
+          {requestingTeacher ? "Sending request..." : "Request teacher support or peer matching"}
+        </button>
       </div>
     );
   }
@@ -113,6 +150,11 @@ function StudyGroups({ user }) {
   let displayedPairs = group.teaching_pairs;
   if (teachingFilter === "tutors_for_me") displayedPairs = tutorsForMe;
   if (teachingFilter === "i_can_teach") displayedPairs = iCanTeach;
+
+  const myMember = group.members.find((member) => member.student_id === user?.id);
+  const myWeakTopics = myMember?.weak_topics || [];
+  const topicsWithTutor = new Set(tutorsForMe.map((pair) => pair.topic_name));
+  const topicsNeedingTeacher = myWeakTopics.filter((topic) => !topicsWithTutor.has(topic));
 
   return (
     <div className="page-container compact-layout">
@@ -169,6 +211,25 @@ function StudyGroups({ user }) {
           </div>
         </div>
       </div>
+
+      {topicsNeedingTeacher.length > 0 && (
+        <section className="teacher-section-card" style={{ marginBottom: "20px" }}>
+          <h3>Need help with topics not covered by a peer?</h3>
+          <p>
+            No strong peer match is available for: {topicsNeedingTeacher.join(", ")}.
+            You can ask a teacher to lead a study session.
+          </p>
+          {teacherRequestMessage && <p className="all-good-msg" role="status">{teacherRequestMessage}</p>}
+          {teacherRequestError && <p className="auth-error-msg" role="alert">{teacherRequestError}</p>}
+          <button
+            className="action-btn-secondary"
+            onClick={() => requestTeacherSupport(topicsNeedingTeacher)}
+            disabled={requestingTeacher}
+          >
+            {requestingTeacher ? "Sending request..." : "Request teacher-led study support"}
+          </button>
+        </section>
+      )}
 
       {/* Grid: Group Members Roster */}
       <section className="section-block">

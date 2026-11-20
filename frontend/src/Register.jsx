@@ -5,6 +5,11 @@ function Register({ onSwitchToLogin }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [course, setCourse] = useState("");
+  const [courseName, setCourseName] = useState("");
+  const [curriculum, setCurriculum] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
+  const [classCode, setClassCode] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,6 +24,12 @@ function Register({ onSwitchToLogin }) {
         name: name.trim(),
         email: email.trim(),
         password: password,
+        course: ["Diploma", "Other / Not listed"].includes(course)
+          ? courseName.trim()
+          : course,
+        college: curriculum.trim(),
+        semester: academicYear.trim(),
+        class_code: classCode.trim() || null,
       });
 
       setSuccess(true);
@@ -44,6 +55,7 @@ function Register({ onSwitchToLogin }) {
           <label>Full Name</label>
           <input
             type="text"
+            maxLength={100}
             placeholder="e.g. Alex Morgan"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -59,6 +71,88 @@ function Register({ onSwitchToLogin }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+          />
+        </div>
+
+        <div className="form-field">
+          <label htmlFor="current-course">Current Course</label>
+          <select
+            id="current-course"
+            value={course}
+            onChange={(e) => setCourse(e.target.value)}
+            required
+          >
+            <option value="" disabled>Select your current course</option>
+            <option value="Higher Secondary">Higher Secondary</option>
+            <option value="B.A.">B.A.</option>
+            <option value="B.Sc.">B.Sc.</option>
+            <option value="B.Com.">B.Com.</option>
+            <option value="B.Tech / B.E.">B.Tech / B.E.</option>
+            <option value="BCA">BCA</option>
+            <option value="BBA">BBA</option>
+            <option value="MBBS">MBBS</option>
+            <option value="Diploma">Diploma</option>
+            <option value="Other / Not listed">Other / Not listed</option>
+          </select>
+        </div>
+
+        {["Diploma", "Other / Not listed"].includes(course) && (
+          <div className="form-field">
+            <label htmlFor="course-name">
+              {course === "Diploma" ? "Diploma program" : "Course name"}
+            </label>
+            <input
+              id="course-name"
+              type="text"
+              maxLength={100}
+              placeholder={
+                course === "Diploma"
+                  ? "e.g. Diploma in Civil Engineering"
+                  : "Enter your course or program name"
+              }
+              value={courseName}
+              onChange={(e) => setCourseName(e.target.value)}
+              required
+            />
+          </div>
+        )}
+
+        <div className="form-field">
+          <label htmlFor="curriculum">Board / Institution</label>
+          <input
+            id="curriculum"
+            type="text"
+            maxLength={150}
+            placeholder="e.g. State Board or university name"
+            value={curriculum}
+            onChange={(e) => setCurriculum(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="form-field">
+          <label htmlFor="academic-year">Current Year / Semester</label>
+          <input
+            id="academic-year"
+            type="text"
+            maxLength={20}
+            placeholder="e.g. Year 2 or Semester 3"
+            value={academicYear}
+            onChange={(e) => setAcademicYear(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="form-field">
+          <label htmlFor="class-code">Teacher's class code (optional)</label>
+          <input
+            id="class-code"
+            type="text"
+            maxLength={16}
+            autoCapitalize="characters"
+            placeholder="Enter the code shared by your teacher"
+            value={classCode}
+            onChange={(e) => setClassCode(e.target.value.toUpperCase())}
           />
         </div>
 

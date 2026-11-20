@@ -20,6 +20,7 @@ StudyMatch AI is a modern web application designed for peer-learning study group
 
 ### Module 1: Study Materials with Weak-Topic Prioritization
 - Browse comprehensive study notes, formula sheets, important questions, and learning resources by Subject (`Biology`, `Mathematics`, `Computer Science`) and Topic.
+- Students see syllabus subjects and diagnostic questions scoped to their registered course, board/institution, and year/semester. Teachers curate the matching subjects, topics, and question sets in Content Management.
 - **Weak Topic Prioritization**: Automatically prioritizes materials for a student's identified weak topics to the top of the feed with a distinct visual badge.
 - Search, filter by type, bookmark/save materials for fast review.
 - Teacher role capability to publish, edit, and delete materials.
@@ -43,6 +44,11 @@ StudyMatch AI is a modern web application designed for peer-learning study group
 - **Scholarships & Study Abroad**: Categorized financial aid opportunities (Merit, Need-based) and country dossiers (USA, UK, Germany, Canada, Australia) with visa work rights and tuition estimates.
 - **Application Checklist & Deadlines**: Task manager with completion toggles and upcoming deadline reminders with countdown badges.
 - **Academic Counselling Flow**: Students can request 1-on-1 career counselling (Online or In-person); teachers review, schedule, and provide feedback notes.
+
+### Peer Learning & Teacher Support
+- Teachers generate study groups only among students in the same course, board/institution, and year/semester; strong peers are paired with students who have matching weak topics.
+- Students can request a teacher-led study session when no peer match covers a weak topic. Requests appear in the Teacher Dashboard and students can track teacher responses in Guidance.
+- Students with no published matching syllabus are told to ask a teacher to tag or add the appropriate course content rather than being shown unrelated material.
 
 ### Module 5: Adaptive Mock Tests & Previous Papers
 - **Adaptive Mock Test Engine**:

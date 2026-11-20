@@ -97,6 +97,104 @@ def test_register_missing_fields_returns_422():
     assert client.post(f"{API}/auth/register", json={"email": _email("x")}).status_code == 422
 
 
+def test_legacy_register_saves_selected_course():
+    email = _email("course")
+    try:
+        res = client.post("/register", json={
+            "name": "Course Student", "email": email, "password": PASSWORD,
+            "course": "B.Tech / B.E.", "college": "Test Institute",
+            "semester": "Year 2",
+        })
+        assert res.status_code == 200, res.text
+
+        db = SessionLocal()
+        try:
+            student = db.query(Student).filter(Student.email == email).first()
+            profile = db.query(StudentProfile).filter(
+                StudentProfile.student_id == student.id
+            ).first()
+            assert profile.course == "B.Tech / B.E."
+            assert profile.college == "Test Institute"
+            assert profile.semester == "Year 2"
+        finally:
+            db.close()
+    finally:
+        _delete_user(email)
+
+
+def test_student_can_request_teacher_study_support(student):
+    res = client.post(
+        f"{API}/guidance/counselling",
+        headers=_auth(student["token"]),
+        json={
+            "request_type": "study_support",
+            "message": "Please help with weak topics.",
+            "preferred_mode": "Online",
+        },
+    )
+    assert res.status_code == 201
+    requests = client.get(
+        f"{API}/guidance/counselling", headers=_auth(student["token"])
+    )
+    assert requests.status_code == 200
+    assert requests.json()[0]["request_type"] == "study_support"
+
+
+def test_student_only_sees_study_materials_for_exact_course_scope(student, teacher):
+    profile = client.put(
+        f"{API}/auth/profile",
+        headers=_auth(student["token"]),
+        json={
+            "course": "Diploma",
+            "college": "Polytechnic College Kannur",
+            "semester": "3rd Semester",
+        },
+    )
+    assert profile.status_code == 200, profile.text
+
+    created_ids = []
+    try:
+        for suffix, course, curriculum, academic_year in [
+            ("matching", "Diploma", "Polytechnic College Kannur", "3rd Semester"),
+            ("other-course", "B.Tech / B.E.", "Polytechnic College Kannur", "3rd Semester"),
+            ("unscoped", None, None, None),
+        ]:
+            response = client.post(
+                "/materials",
+                headers=_auth(teacher["token"]),
+                json={
+                    "title": f"Scoped material {suffix} {uuid.uuid4().hex[:6]}",
+                    "subject": "Materials Scope Test",
+                    "topic": "Materials Scope",
+                    "course": course,
+                    "curriculum": curriculum,
+                    "academic_year": academic_year,
+                    "material_type": "notes",
+                    "content": "Course-scoped test material.",
+                },
+            )
+            assert response.status_code == 200, response.text
+            created_ids.append(response.json()["id"])
+
+        materials = client.get("/materials", headers=_auth(student["token"]))
+        assert materials.status_code == 200, materials.text
+        visible_ids = {item["id"] for item in materials.json()["items"]}
+        assert created_ids[0] in visible_ids
+        assert created_ids[1] not in visible_ids
+        assert created_ids[2] not in visible_ids
+        assert client.get(
+            f"/materials/{created_ids[1]}", headers=_auth(student["token"])
+        ).status_code == 404
+        assert client.get(
+            f"/materials/{created_ids[2]}", headers=_auth(student["token"])
+        ).status_code == 404
+    finally:
+        for material_id in created_ids:
+            client.delete(
+                f"/materials/{material_id}", headers=_auth(teacher["token"])
+            )
+
+
 def test_register_cannot_create_teacher():
     """SECURITY: public sign-up must never grant the teacher role."""
     email = _email("sneaky")
@@ -174,6 +272,39 @@ def test_student_cannot_create_subject(student):
     res = client.post(f"{API}/subjects", headers=_auth(student["token"]),
                       json={"name": f"Blocked {uuid.uuid4().hex[:6]}"})
     assert res.status_code == 403
+
+
+def test_teacher_syllabus_subjects_are_filterable_by_course(teacher):
+    subject_name = f"Scoped Subject {uuid.uuid4().hex[:6]}"
+    payload = {
+        "name": subject_name,
+        "course": "Diploma in Civil Engineering",
+        "curriculum": "Test Technical Board",
+        "academic_year": "Semester 2",
+    }
+    created = client.post(f"{API}/subjects", headers=_auth(teacher["token"]), json=payload)
+    assert created.status_code == 201, created.text
+    subject_id = created.json()["id"]
+    try:
+        filters = {
+            "course": payload["course"],
+            "curriculum": payload["curriculum"],
+            "academic_year": payload["academic_year"],
+        }
+        matched = client.get(f"{API}/subjects", params=filters)
+        assert matched.status_code == 200
+        assert subject_id in [item["id"] for item in matched.json()]
+
+        unmatched = client.get(
+            f"{API}/subjects",
+            params={**filters, "curriculum": "Different Board"},
+        )
+        assert unmatched.status_code == 200
+        assert subject_id not in [item["id"] for item in unmatched.json()]
+    finally:
+        assert client.delete(
+            f"{API}/subjects/{subject_id}", headers=_auth(teacher["token"])
+        ).status_code == 200
 
 
 def test_teacher_subject_and_topic_lifecycle(teacher, student):

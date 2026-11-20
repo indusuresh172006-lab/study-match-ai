@@ -1,8 +1,9 @@
 import datetime
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from database import get_db
 from models import (
@@ -11,8 +12,11 @@ from models import (
     TeachingPair,
     StudySchedule,
     Student,
+    StudentProfile,
     SkillProfile,
     Topic,
+    StudyClass,
+    ClassEnrollment,
 )
 from auth import get_current_user, require_teacher, require_student
 from ml.group_matcher import (
@@ -29,9 +33,21 @@ router = APIRouter()
 # ─────────────────────────────────────────────
 
 class ScheduleSlotCreate(BaseModel):
-    day_of_week: str = Field(..., example="Monday")
-    start_time: str = Field(..., example="17:00")
-    end_time: str = Field(..., example="19:00")
+    day_of_week: str = Field(..., min_length=3, max_length=20, example="Monday")
+    start_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", example="17:00")
+    end_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", example="19:00")
+    study_mode: Literal["online", "offline", "either"] = "online"
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        try:
+            start = datetime.datetime.strptime(self.start_time, "%H:%M").time()
+            end = datetime.datetime.strptime(self.end_time, "%H:%M").time()
+        except ValueError as exc:
+            raise ValueError("Times must be valid 24-hour HH:MM values.") from exc
+        if end <= start:
+            raise ValueError("end_time must be later than start_time.")
+        return self
 
 
 class ScheduleSlotOut(BaseModel):
@@ -39,6 +55,7 @@ class ScheduleSlotOut(BaseModel):
     day_of_week: str
     start_time: str
     end_time: str
+    study_mode: str
     is_available: bool
 
     class Config:
@@ -67,6 +84,7 @@ class GroupMemberSummary(BaseModel):
 class StudyGroupDetailOut(BaseModel):
     id: int
     name: str
+    class_id: Optional[int] = None
     status: str
     member_count: int
     coverage_rate: float
@@ -79,9 +97,20 @@ class StudyGroupDetailOut(BaseModel):
 
 
 class GenerateGroupsRequest(BaseModel):
-    min_size: Optional[int] = 3
-    max_size: Optional[int] = 5
-    reset_existing: Optional[bool] = True
+    class_id: Optional[int] = None
+    min_size: int = Field(3, ge=3, le=5)
+    max_size: int = Field(5, ge=3, le=5)
+    reset_existing: bool = True
+
+    @model_validator(mode="after")
+    def validate_group_size_range(self):
+        if self.min_size > self.max_size:
+            raise ValueError("min_size must not exceed max_size.")
+        return self
+
+
+class GroupReviewRequest(BaseModel):
+    decision: Literal["approve", "reject"]
 
 
 # ─────────────────────────────────────────────
@@ -174,7 +203,7 @@ def generate_study_groups(
     Partitions students into balanced groups of 3 to 5 where weak topics are
     covered by strong members, persists to PostgreSQL, and computes peer teaching pairs.
     """
-    # 1. Fetch all students with role='student'
+    # 1. Partition students by curriculum so they only match against peers on the same syllabus.
     students = db.query(Student).filter(Student.role == "student").all()
     if len(students) < 2:
         raise HTTPException(
@@ -182,37 +211,83 @@ def generate_study_groups(
             detail="At least 2 active students are required to form study groups.",
         )
 
-    # 2. Build student skill profiles representation
-    student_payloads = []
+    profiles = db.query(StudentProfile).filter(
+        StudentProfile.student_id.in_([student.id for student in students])
+    ).all()
+    profile_by_student = {profile.student_id: profile for profile in profiles}
+    cohorts: Dict[tuple, List[Student]] = {}
     for s in students:
-        skills = db.query(SkillProfile).filter(SkillProfile.student_id == s.id).all()
-        weak_topics = [sp.topic for sp in skills if sp.status == "weak"]
-        strong_topics = [sp.topic for sp in skills if sp.status == "strong"]
-        mastery = {sp.topic: sp.mastery_score for sp in skills}
+        profile = profile_by_student.get(s.id)
+        cohort_key = tuple(
+            (value or "General").strip().casefold()
+            for value in (
+                profile.course if profile else None,
+                profile.college if profile else None,
+                profile.semester if profile else None,
+            )
+        )
+        cohorts.setdefault(cohort_key, []).append(s)
 
-        student_payloads.append({
-            "id": s.id,
-            "name": s.name,
-            "weak_topics": weak_topics,
-            "strong_topics": strong_topics,
-            "mastery_scores": mastery,
-        })
+    eligible_cohorts = {
+        key: cohort_students
+        for key, cohort_students in cohorts.items()
+        if len(cohort_students) >= 2
+    }
+    if not eligible_cohorts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "At least 2 students must share the same course, board/institution, "
+                "and year/semester to form a peer study group."
+            ),
+        )
 
-    # 3. Run Optimization Group Matching Algorithm
-    formed_groups = form_balanced_study_groups(
-        students=student_payloads,
-        min_size=req.min_size or 3,
-        max_size=req.max_size or 5,
-    )
+    # 2. Build skill profiles and match within each cohort.
+    formed_groups = []
+    for cohort_key, cohort_students in sorted(eligible_cohorts.items()):
+        student_payloads = []
+        for s in cohort_students:
+            skills = db.query(SkillProfile).filter(SkillProfile.student_id == s.id).all()
+            weak_topics = [sp.topic for sp in skills if sp.status == "weak"]
+            strong_topics = [sp.topic for sp in skills if sp.status == "strong"]
+            mastery = {sp.topic: sp.mastery_score for sp in skills}
+
+            student_payloads.append({
+                "id": s.id,
+                "name": s.name,
+                "weak_topics": weak_topics,
+                "strong_topics": strong_topics,
+                "mastery_scores": mastery,
+            })
+
+        cohort_groups = form_balanced_study_groups(
+            students=student_payloads,
+            min_size=req.min_size or 3,
+            max_size=req.max_size or 5,
+        )
+        cohort_label = " / ".join(
+            value for value in (
+                profile_by_student[cohort_students[0].id].course
+                if cohort_students[0].id in profile_by_student else None,
+                profile_by_student[cohort_students[0].id].college
+                if cohort_students[0].id in profile_by_student else None,
+                profile_by_student[cohort_students[0].id].semester
+                if cohort_students[0].id in profile_by_student else None,
+            )
+            if value
+        ) or "General"
+        for group_data in cohort_groups:
+            group_data["group_name"] = f"{cohort_label} - {group_data['group_name']}"
+        formed_groups.extend(cohort_groups)
 
     if req.reset_existing:
-        # Clear existing auto-generated active groups
+        # Clear existing active groups only after confirming replacement cohorts exist.
         old_groups = db.query(StudyGroup).filter(StudyGroup.status == "active").all()
         for og in old_groups:
             db.delete(og)
         db.commit()
 
-    # 4. Persist to PostgreSQL
+    # 3. Persist to PostgreSQL
     results: List[StudyGroupDetailOut] = []
 
     for g_data in formed_groups:

@@ -970,6 +970,9 @@ function CourseGuidance() {
                     <span className={`status-badge status-${req.status}`}>
                       {req.status.toUpperCase()}
                     </span>
+                    <span className="mode-badge">
+                      {req.request_type === "study_support" ? "📚 Study support" : "🎓 Higher studies"}
+                    </span>
                     <span className="mode-badge">📍 {req.preferred_mode}</span>
                     <span className="date-sub">
                       {new Date(req.created_at).toLocaleDateString()}
