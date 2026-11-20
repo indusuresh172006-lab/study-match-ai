@@ -35,8 +35,11 @@ function PreviousPapers({ user }) {
 
   // Teacher Upload Modal
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadExamName, setUploadExamName] = useState("JEE Main");
-  const [uploadSubject, setUploadSubject] = useState("Mathematics");
+  const [uploadExamName, setUploadExamName] = useState("");
+  const [uploadSubject, setUploadSubject] = useState("");
+  const [uploadCourse, setUploadCourse] = useState("");
+  const [uploadCurriculum, setUploadCurriculum] = useState("");
+  const [uploadAcademicYear, setUploadAcademicYear] = useState("");
   const [uploadYear, setUploadYear] = useState(2024);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadTopicTags, setUploadTopicTags] = useState("");
@@ -49,6 +52,19 @@ function PreviousPapers({ user }) {
   const [previewPaper, setPreviewPaper] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
+  const paperSubjects = [...new Set(papers.map((paper) => paper.subject).filter(Boolean))];
+  const paperExams = [...new Set(papers.map((paper) => paper.exam_name).filter(Boolean))];
+  const paperYears = [...new Set(papers.map((paper) => paper.year).filter(Boolean))]
+    .sort((a, b) => b - a);
+  const visiblePapers = papers.filter((paper) =>
+    (selectedSubject === "All" || paper.subject === selectedSubject)
+    && (selectedExam === "All" || paper.exam_name === selectedExam)
+    && (selectedYear === "All" || String(paper.year) === selectedYear)
+    && (!topicSearch.trim() || (paper.topic_tags || []).some((tag) =>
+      tag.toLowerCase().includes(topicSearch.trim().toLowerCase())
+    ))
+  );
+
   useEffect(() => {
     return () => {
       if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
@@ -59,23 +75,11 @@ function PreviousPapers({ user }) {
     setLoading(true);
     setError(null);
     try {
-      // First try extended endpoint /api/v1/papers
-      const params = {};
-      if (selectedSubject !== "All") params.subject = selectedSubject;
-      if (selectedExam !== "All") params.exam = selectedExam;
-      if (selectedYear !== "All") params.year = Number(selectedYear);
-      if (topicSearch.trim()) params.topic = topicSearch.trim();
-
-      const res = await api.get("/api/v1/papers", { params });
+      const res = await api.get("/api/v1/papers", { params: { skip: 0, limit: 100 } });
       setPapers(res.data.items || []);
     } catch (err) {
-      console.warn("Extended papers endpoint error, falling back to /papers:", err);
-      try {
-        const fallback = await api.get("/papers");
-        setPapers(fallback.data || []);
-      } catch (e2) {
-        setError("Failed to load question papers library.");
-      }
+      console.error("Question papers request failed:", err);
+      setError(err.response?.data?.detail || "Failed to load question papers library.");
     } finally {
       setLoading(false);
     }
@@ -83,7 +87,7 @@ function PreviousPapers({ user }) {
 
   useEffect(() => {
     fetchPapers();
-  }, [selectedSubject, selectedExam, selectedYear]);
+  }, []);
 
   const handleSubmitExam = useCallback(async () => {
     if (!activePaper || submittingExam) return;
@@ -183,6 +187,9 @@ function PreviousPapers({ user }) {
       payload.append("year", String(uploadYear));
       payload.append("title", uploadTitle);
       payload.append("topic_tags", uploadTopicTags);
+      payload.append("course", uploadCourse.trim());
+      payload.append("curriculum", uploadCurriculum.trim());
+      payload.append("academic_year", uploadAcademicYear.trim());
       payload.append("paper_file", uploadPaperFile);
       if (uploadAnswerKeyFile) payload.append("answer_key_file", uploadAnswerKeyFile);
 
@@ -193,6 +200,11 @@ function PreviousPapers({ user }) {
       setShowUploadModal(false);
       setUploadTitle("");
       setUploadTopicTags("");
+      setUploadExamName("");
+      setUploadSubject("");
+      setUploadCourse("");
+      setUploadCurriculum("");
+      setUploadAcademicYear("");
       setUploadPaperFile(null);
       setUploadAnswerKeyFile(null);
       fetchPapers();
@@ -272,7 +284,9 @@ function PreviousPapers({ user }) {
             <div>
               <h2>📄 Solved Previous-Year Question Papers</h2>
               <p className="page-subtitle">
-                Official past examinations with step-by-step solutions, timed simulation mode, and automated remediation links back to study materials.
+                {isTeacher
+                  ? "Upload and approve official papers, then share them with the matching course and semester."
+                  : "Approved question papers and answer keys for your current course and semester."}
               </p>
             </div>
             {isTeacher && (
@@ -289,7 +303,7 @@ function PreviousPapers({ user }) {
           <div className="papers-filters-bar">
             {/* Subject Tabs */}
             <div className="stream-filter-pills">
-              {["All", "Biology", "Mathematics", "Computer Science", "Physics"].map((subj) => (
+              {["All", ...paperSubjects].map((subj) => (
                 <button
                   key={subj}
                   className={`filter-pill ${selectedSubject === subj ? "active" : ""}`}
@@ -309,11 +323,9 @@ function PreviousPapers({ user }) {
                 style={{ padding: "6px 12px", fontSize: "13px" }}
               >
                 <option value="All">All Exams</option>
-                <option value="JEE Main">JEE Main</option>
-                <option value="NEET-UG">NEET-UG</option>
-                <option value="GATE">GATE</option>
-                <option value="KEAM">KEAM</option>
-                <option value="Board">State Board / CBSE</option>
+                {paperExams.map((exam) => (
+                  <option key={exam} value={exam}>{exam}</option>
+                ))}
               </select>
 
               <select
@@ -323,9 +335,9 @@ function PreviousPapers({ user }) {
                 style={{ padding: "6px 12px", fontSize: "13px" }}
               >
                 <option value="All">All Years</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
+                {paperYears.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
               </select>
 
               <input
@@ -333,7 +345,6 @@ function PreviousPapers({ user }) {
                 placeholder="🔍 Search topic..."
                 value={topicSearch}
                 onChange={(e) => setTopicSearch(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && fetchPapers()}
                 className="search-input"
                 style={{ padding: "6px 12px", fontSize: "13px", width: "160px" }}
               />
@@ -344,11 +355,15 @@ function PreviousPapers({ user }) {
             <LoadingSpinner message="Loading previous year question papers..." />
           ) : error ? (
             <ErrorMessage error={error} onRetry={fetchPapers} />
-          ) : papers.length === 0 ? (
+          ) : visiblePapers.length === 0 ? (
             <EmptyState
               icon="📄"
-              title="No papers found matching criteria"
-              message="Try clearing filters or search term."
+              title={papers.length === 0 ? "No course papers available yet" : "No papers match these filters"}
+              message={papers.length === 0
+                ? (isTeacher
+                  ? "Upload an official paper and answer key, then set the matching course, college, and semester."
+                  : "A teacher must upload and approve a question paper for your course and semester. You can then download the paper and answer key.")
+                : "Try clearing the filters or topic search."}
               actionText="Reset Filters"
               onAction={() => {
                 setSelectedSubject("All");
@@ -359,12 +374,15 @@ function PreviousPapers({ user }) {
             />
           ) : (
             <div className="courses-grid">
-              {papers.map((paper) => (
+              {visiblePapers.map((paper) => (
                 <div key={paper.id} className="course-card-enhanced">
                   <div className="course-card-header">
                     <span className="exam-code-badge">{paper.exam_name || "Official"}</span>
                     <span className="degree-tag">{paper.year}</span>
                     <span className="stream-pill">{paper.subject}</span>
+                    {paper.academic_year && (
+                      <span className="degree-tag">{paper.academic_year}</span>
+                    )}
                   </div>
 
                   <h3 className="course-card-title">{paper.title}</h3>
@@ -380,9 +398,8 @@ function PreviousPapers({ user }) {
                   )}
 
                   <div className="card-key-details" style={{ marginTop: "12px" }}>
-                    <div>📄 <strong>Format:</strong> Solved PDF</div>
-                    <div>⏱️ <strong>Limit:</strong> {paper.time_limit_minutes || 60} mins</div>
-                    <div>🎯 <strong>Marks:</strong> {paper.total_marks || 50}</div>
+                    <div>📄 <strong>Format:</strong> Question Paper PDF</div>
+                    <div>🔑 <strong>Answer Key:</strong> {paper.answer_key_file ? "Available" : "Not uploaded"}</div>
                   </div>
 
                   <div className="card-bottom-actions">
@@ -392,20 +409,20 @@ function PreviousPapers({ user }) {
                     >
                       📄 View PDF
                     </button>
+                    <button
+                      className="action-btn-secondary btn-sm"
+                      onClick={() => handleDownloadPaper(paper)}
+                    >
+                      ⬇️ Download QP
+                    </button>
                     {paper.answer_key_file && (
                       <button
                         className="action-btn-secondary btn-sm"
                         onClick={() => handleDownloadPaper(paper, "answer_key")}
                       >
-                        🔑 Key
+                        🔑 Answer Key
                       </button>
                     )}
-                    <button
-                      className="action-btn-primary btn-sm"
-                      onClick={() => handleStartTimedExam(paper.id)}
-                    >
-                      ⏱️ Timed Attempt
-                    </button>
                   </div>
 
                   {isTeacher && paper.approval_status === "pending" && (
@@ -642,33 +659,30 @@ function PreviousPapers({ user }) {
               <div className="info-grid-2col" style={{ marginBottom: "12px" }}>
                 <div>
                   <label>Exam Name:</label>
-                  <select
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. SITTTR Diploma Semester Exam"
                     value={uploadExamName}
                     onChange={(e) => setUploadExamName(e.target.value)}
+                    required
                     className="search-input"
                     style={{ width: "100%", marginTop: "4px" }}
-                  >
-                    <option value="JEE Main">JEE Main</option>
-                    <option value="NEET-UG">NEET-UG</option>
-                    <option value="GATE">GATE</option>
-                    <option value="KEAM">KEAM</option>
-                    <option value="Board">State Board / CBSE</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label>Subject:</label>
-                  <select
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. Programming in C"
                     value={uploadSubject}
                     onChange={(e) => setUploadSubject(e.target.value)}
+                    required
                     className="search-input"
                     style={{ width: "100%", marginTop: "4px" }}
-                  >
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Biology">Biology</option>
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Physics">Physics</option>
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -700,6 +714,48 @@ function PreviousPapers({ user }) {
                   />
                 </div>
               </div>
+
+              <div className="info-grid-2col" style={{ marginBottom: "8px" }}>
+                <div>
+                  <label>Course (for student matching):</label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. Diploma in Computer Engineering"
+                    value={uploadCourse}
+                    onChange={(e) => setUploadCourse(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
+                </div>
+                <div>
+                  <label>College / curriculum:</label>
+                  <input
+                    type="text"
+                    maxLength={150}
+                    placeholder="e.g. Polytechnic College Kannur"
+                    value={uploadCurriculum}
+                    onChange={(e) => setUploadCurriculum(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
+                </div>
+                <div>
+                  <label>Semester / academic year:</label>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    placeholder="e.g. 3rd Semester"
+                    value={uploadAcademicYear}
+                    onChange={(e) => setUploadAcademicYear(e.target.value)}
+                    className="search-input"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  />
+                </div>
+              </div>
+              <p className="subtext">
+                Fill in all three course fields so only matching students can see this paper and its answer key.
+              </p>
 
               <div className="form-group" style={{ marginBottom: "12px" }}>
                 <label>Topic Tags (comma-separated):</label>
@@ -796,16 +852,14 @@ function PreviousPapers({ user }) {
                 >
                   ⬇️ Download PDF Paper
                 </button>
-                <button
-                  className="action-btn-secondary"
-                  onClick={() => {
-                    setPreviewPaper(null);
-                    setPreviewUrl("");
-                    handleStartTimedExam(previewPaper.id);
-                  }}
-                >
-                  ⏱️ Attempt in Timed Mode
-                </button>
+                {previewPaper.answer_key_file && (
+                  <button
+                    className="action-btn-secondary"
+                    onClick={() => handleDownloadPaper(previewPaper, "answer_key")}
+                  >
+                    🔑 Download Answer Key
+                  </button>
+                )}
               </div>
             </div>
           </div>

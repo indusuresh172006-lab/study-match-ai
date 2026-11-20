@@ -12,7 +12,12 @@ from ml.group_matcher import form_balanced_study_groups, match_study_schedules
 from routers.chatbot import _find_study_resources
 from routers.classes import parse_mark_rows
 from routers.guidance import _filter_courses_for_diploma, recommend_courses
-from routers.mock_tests_v2 import _test_matches_student_scope, create_test
+from routers.mock_tests_v2 import (
+    _paper_matches_student_scope,
+    _paper_scope_values,
+    _test_matches_student_scope,
+    create_test,
+)
 
 
 class ProjectFeatureTests(unittest.TestCase):
@@ -386,6 +391,32 @@ class ProjectFeatureTests(unittest.TestCase):
 
         self.assertTrue(_summary_matches_student_scope(matching_summary, scope))
         self.assertFalse(_summary_matches_student_scope(unrelated_summary, scope))
+
+    def test_question_paper_scope_matches_course_and_semester(self):
+        scope = (
+            "diploma in computer engineering",
+            "polytechnic college kannur",
+            "semester:3",
+        )
+        matching_paper = SimpleNamespace(
+            course="Diploma in Computer Engineering",
+            curriculum="Polytechnic College Kannur",
+            academic_year="3rd Semester",
+        )
+        wrong_semester = SimpleNamespace(
+            course="Diploma in Computer Engineering",
+            curriculum="Polytechnic College Kannur",
+            academic_year="4th Semester",
+        )
+
+        self.assertTrue(_paper_matches_student_scope(matching_paper, scope))
+        self.assertFalse(_paper_matches_student_scope(wrong_semester, scope))
+
+    def test_question_paper_scope_requires_all_profile_fields(self):
+        with self.assertRaises(HTTPException) as raised:
+            _paper_scope_values("Diploma in Computer Engineering", None, None)
+
+        self.assertEqual(raised.exception.status_code, 422)
 
 
 if __name__ == "__main__":

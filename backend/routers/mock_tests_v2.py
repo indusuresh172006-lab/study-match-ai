@@ -68,6 +68,19 @@ def _filter_papers_to_scope(query, scope):
     )
 
 
+def _paper_scope_values(course, curriculum, academic_year):
+    values = [
+        (value or "").strip()
+        for value in (course, curriculum, academic_year)
+    ]
+    if any(values) and not all(values):
+        raise HTTPException(
+            status_code=422,
+            detail="Course, institution, and semester must all be provided for a scoped paper.",
+        )
+    return values
+
+
 @router.get("/papers")
 def list_papers(
     exam: Optional[str] = None,
@@ -163,15 +176,11 @@ def upload_paper(
     current_user: Student = Depends(require_teacher)
 ):
     """Teacher uploads question paper metadata."""
-    scope_values = [
-        (payload.get(field) or "").strip()
-        for field in ("course", "curriculum", "academic_year")
-    ]
-    if any(scope_values) and not all(scope_values):
-        raise HTTPException(
-            status_code=422,
-            detail="Course, institution, and semester must all be provided for a scoped paper.",
-        )
+    scope_values = _paper_scope_values(
+        payload.get("course"),
+        payload.get("curriculum"),
+        payload.get("academic_year"),
+    )
 
     paper = QuestionPaper(
         exam_name=payload.get("exam_name", ""),
@@ -238,15 +247,7 @@ async def upload_paper_files(
 ):
     stored_paths = []
     try:
-        scope_values = [
-            (value or "").strip()
-            for value in (course, curriculum, academic_year)
-        ]
-        if any(scope_values) and not all(scope_values):
-            raise HTTPException(
-                status_code=422,
-                detail="Course, institution, and semester must all be provided for a scoped paper.",
-            )
+        scope_values = _paper_scope_values(course, curriculum, academic_year)
 
         paper_path = await _store_pdf(paper_file, f"{uuid.uuid4().hex}.pdf")
         stored_paths.append(paper_path)
