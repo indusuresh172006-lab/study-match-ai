@@ -117,6 +117,26 @@ def list_users(
     }
 
 
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: int,
+    current_admin: Student = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(Student).filter(Student.id == user_id).with_for_update().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if user.role == "admin":
+        raise HTTPException(
+            status_code=409,
+            detail="Administrator accounts cannot be deleted from account management.",
+        )
+
+    db.delete(user)
+    db.commit()
+    return None
+
+
 @router.get("/teacher-requests")
 def list_teacher_requests(
     current_admin: Student = Depends(require_admin),

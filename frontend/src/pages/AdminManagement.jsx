@@ -21,6 +21,7 @@ function AdminManagement({ view }) {
   const [loading, setLoading] = useState(true);
   const [savingTeacher, setSavingTeacher] = useState(false);
   const [savingClass, setSavingClass] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -112,6 +113,32 @@ function AdminManagement({ view }) {
     }
   };
 
+  const deleteAccount = async (account) => {
+    const ownedClasses = classes.filter((studyClass) => studyClass.teacher_id === account.id);
+    const relatedDataWarning = account.role === "teacher" && ownedClasses.length
+      ? `\n\nThis also permanently deletes ${ownedClasses.length} class(es): ${ownedClasses.map((studyClass) => studyClass.name).join(", ")}. Their enrollments and imported marks will be deleted too.`
+      : account.role === "student"
+        ? "\n\nThis also permanently deletes the student's profile, learning history, and enrollments."
+        : "";
+    const confirmed = window.confirm(
+      `Permanently delete ${account.name} (${account.email})?${relatedDataWarning}\n\nThis cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setError("");
+    setNotice("");
+    setDeletingUserId(account.id);
+    try {
+      await api.delete(`/api/v1/admin/users/${account.id}`);
+      setNotice(`Deleted account for ${account.name}.`);
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not delete account.");
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   if (loading) {
     return <section className="teacher-section-card"><p>Loading admin controls...</p></section>;
   }
@@ -173,8 +200,29 @@ function AdminManagement({ view }) {
         <div className="card-head-row"><div><h3>Accounts</h3><p className="subtext">Showing {users.length} of {overview?.total_users ?? users.length} accounts.</p></div><button className="action-btn-secondary btn-sm" type="button" onClick={loadData}>Refresh</button></div>
         <div className="class-topics-table-wrapper">
           <table className="teacher-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Approval</th></tr></thead>
-            <tbody>{users.map((user) => <tr key={user.id}><td>{user.name}</td><td>{user.email}</td><td><span className="status-badge">{user.role.toUpperCase()}</span></td><td><span className="status-badge">{user.approval_status.toUpperCase()}</span></td></tr>)}</tbody>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Approval</th><th>Actions</th></tr></thead>
+            <tbody>{users.map((user) => (
+              <tr key={user.id}>
+                <td>{user.name}</td>
+                <td>{user.email}</td>
+                <td><span className="status-badge">{user.role.toUpperCase()}</span></td>
+                <td><span className="status-badge">{user.approval_status.toUpperCase()}</span></td>
+                <td>
+                  {user.role !== "admin" ? (
+                    <button
+                      className="action-btn-danger btn-sm"
+                      type="button"
+                      disabled={deletingUserId === user.id}
+                      onClick={() => deleteAccount(user)}
+                    >
+                      {deletingUserId === user.id ? "Deleting..." : "Delete"}
+                    </button>
+                  ) : (
+                    <span className="subtext">Protected</span>
+                  )}
+                </td>
+              </tr>
+            ))}</tbody>
           </table>
         </div>
       </section>

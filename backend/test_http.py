@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from database import SessionLocal
-from models import Student, StudentProfile, TeacherProfile, StudyClass
+from models import ClassEnrollment, Student, StudentProfile, TeacherProfile, StudyClass
 from auth import get_password_hash
 
 API = "/api/v1"
@@ -230,6 +230,101 @@ def test_admin_can_create_teacher_and_manage_global_classes(admin):
             finally:
                 db.close()
         _delete_user(teacher_email)
+
+
+def test_admin_can_delete_student_account(admin, student):
+    db = SessionLocal()
+    try:
+        user = db.query(Student).filter(Student.email == student["email"]).first()
+        user_id = user.id
+    finally:
+        db.close()
+
+    response = client.delete(
+        f"{API}/admin/users/{user_id}", headers=_auth(admin["token"])
+    )
+    assert response.status_code == 204, response.text
+
+    db = SessionLocal()
+    try:
+        assert db.query(Student).filter(Student.id == user_id).first() is None
+    finally:
+        db.close()
+    assert _login(student["email"]).status_code == 401
+
+
+def test_admin_deleting_teacher_removes_owned_classes_and_enrollments(admin, teacher, student):
+    teacher_db = SessionLocal()
+    try:
+        teacher_user = teacher_db.query(Student).filter(Student.email == teacher["email"]).first()
+        teacher_id = teacher_user.id
+        student_user = teacher_db.query(Student).filter(Student.email == student["email"]).first()
+        student_id = student_user.id
+    finally:
+        teacher_db.close()
+
+    class_response = client.post(
+        f"{API}/admin/classes",
+        headers=_auth(admin["token"]),
+        json={
+            "name": "Deletion Cascade Class",
+            "course": "Test Course",
+            "curriculum": "Test Institute",
+            "academic_year": "Semester 1",
+            "teacher_id": teacher_id,
+        },
+    )
+    assert class_response.status_code == 201, class_response.text
+    class_id = class_response.json()["id"]
+
+    db = SessionLocal()
+    try:
+        db.add(ClassEnrollment(class_id=class_id, student_id=student_id))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.delete(
+        f"{API}/admin/users/{teacher_id}", headers=_auth(admin["token"])
+    )
+    assert response.status_code == 204, response.text
+
+    db = SessionLocal()
+    try:
+        assert db.query(Student).filter(Student.id == teacher_id).first() is None
+        assert db.query(StudyClass).filter(StudyClass.id == class_id).first() is None
+        assert db.query(ClassEnrollment).filter(ClassEnrollment.class_id == class_id).count() == 0
+        assert db.query(Student).filter(Student.id == student_id).first() is not None
+    finally:
+        db.close()
+
+
+def test_admin_cannot_delete_admin_account(admin):
+    db = SessionLocal()
+    try:
+        admin_user = db.query(Student).filter(Student.email == admin["email"]).first()
+        admin_id = admin_user.id
+    finally:
+        db.close()
+
+    response = client.delete(
+        f"{API}/admin/users/{admin_id}", headers=_auth(admin["token"])
+    )
+    assert response.status_code == 409
+
+
+def test_non_admin_cannot_delete_account(student):
+    db = SessionLocal()
+    try:
+        user = db.query(Student).filter(Student.email == student["email"]).first()
+        user_id = user.id
+    finally:
+        db.close()
+
+    response = client.delete(
+        f"{API}/admin/users/{user_id}", headers=_auth(student["token"])
+    )
+    assert response.status_code == 403
 
 
 def test_student_only_sees_study_materials_for_exact_course_scope(student, teacher):

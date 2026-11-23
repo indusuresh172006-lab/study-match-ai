@@ -217,7 +217,7 @@ CREATE DATABASE studymatch_db;
 | **Teacher** | `teacher@studymatch.ai` | `password123` | All student features + Teacher Dashboard, Class Weak Topics Heatmap, At-Risk Student Interventions, Counselling Queue, Guidance Doc Curation, Test Authoring |
 | **Admin** | Created interactively with `python create_admin.py` | Chosen during setup | Global Teacher Dashboard sections, account provisioning, and class administration |
 
-Administrators sign in through the normal login page and are sent to `/admin`. The dashboard can provision teacher accounts, assign and manage classes, and review platform-wide teacher workflows. Admin accounts cannot be created through public registration; the first one must be bootstrapped from the backend CLI.
+Administrators sign in through the normal login page and are sent to `/admin`. The admin sidebar separates platform reports from teacher requests, accounts, classes, and content management. From **Accounts**, administrators can permanently delete student or teacher accounts; deleting a teacher also deletes their classes, enrollments, and imported marks. Administrator accounts are protected from this action. Admin accounts cannot be created through public registration; the first one must be bootstrapped from the backend CLI.
 
 On the public registration page, select **Teacher** and provide the subject, college/institution, and semester taught. The request remains pending and the account cannot log in until an administrator approves it from **Teacher account requests** in `/admin`. Rejected requests cannot access the teacher dashboard.
 
