@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from database import SessionLocal
-from models import ClassEnrollment, Student, StudentProfile, TeacherProfile, StudyClass
+from models import ClassEnrollment, Course, Student, StudentProfile, TeacherProfile, StudyClass
 from auth import get_password_hash
 
 API = "/api/v1"
@@ -325,6 +325,107 @@ def test_non_admin_cannot_delete_account(student):
         f"{API}/admin/users/{user_id}", headers=_auth(student["token"])
     )
     assert response.status_code == 403
+
+
+def test_ba_student_recommendations_only_include_eligible_postgraduate_courses(student):
+    suffix = uuid.uuid4().hex[:8]
+    eligible_humanities = Course(
+        title=f"M.A. Test Humanities {suffix}",
+        stream="Humanities",
+        degree_level="Postgraduate",
+        duration_years=2,
+        eligibility="Bachelor's degree in Humanities, Arts, or Social Sciences.",
+        exams=[],
+        fee_range="Varies",
+        skills_needed=[],
+        job_roles=[],
+        salary_range="Varies",
+        scope="Test course",
+        top_colleges=[],
+    )
+    eligible_any_bachelor = Course(
+        title=f"MBA Test Any Bachelor's {suffix}",
+        stream="Management",
+        degree_level="Postgraduate",
+        duration_years=2,
+        eligibility="Any bachelor's degree.",
+        exams=[],
+        fee_range="Varies",
+        skills_needed=[],
+        job_roles=[],
+        salary_range="Varies",
+        scope="Test course",
+        top_colleges=[],
+    )
+    ineligible_stem = Course(
+        title=f"M.Sc Test STEM {suffix}",
+        stream="Science",
+        degree_level="Postgraduate",
+        duration_years=2,
+        eligibility="B.Sc or B.Tech in a STEM field.",
+        exams=[],
+        fee_range="Varies",
+        skills_needed=[],
+        job_roles=[],
+        salary_range="Varies",
+        scope="Test course",
+        top_colleges=[],
+    )
+    undergraduate = Course(
+        title=f"B.Tech Test Undergraduate {suffix}",
+        stream="Engineering",
+        degree_level="Undergraduate",
+        duration_years=4,
+        eligibility="10+2 with Physics and Mathematics.",
+        exams=[],
+        fee_range="Varies",
+        skills_needed=[],
+        job_roles=[],
+        salary_range="Varies",
+        scope="Test course",
+        top_colleges=[],
+    )
+
+    course_ids = []
+    db = SessionLocal()
+    try:
+        user = db.query(Student).filter(Student.email == student["email"]).first()
+        profile = db.query(StudentProfile).filter(StudentProfile.student_id == user.id).first()
+        profile.course = "B.A."
+        db.add_all([eligible_humanities, eligible_any_bachelor, ineligible_stem, undergraduate])
+        db.commit()
+        course_ids = [
+            eligible_humanities.id,
+            eligible_any_bachelor.id,
+            ineligible_stem.id,
+            undergraduate.id,
+        ]
+    finally:
+        db.close()
+
+    try:
+        response = client.get(
+            f"{API}/guidance/courses/recommend", headers=_auth(student["token"])
+        )
+        assert response.status_code == 200, response.text
+        recommendations = response.json()
+        recommended_ids = {course["id"] for course in recommendations}
+        assert course_ids[0] in recommended_ids
+        assert course_ids[1] in recommended_ids
+        assert course_ids[2] not in recommended_ids
+        assert course_ids[3] not in recommended_ids
+        assert all(
+            course["degree_level"].casefold().startswith("postgraduate")
+            for course in recommendations
+        )
+        assert all("B.A." in course["match_reason"] for course in recommendations)
+    finally:
+        db = SessionLocal()
+        try:
+            db.query(Course).filter(Course.id.in_(course_ids)).delete(synchronize_session=False)
+            db.commit()
+        finally:
+            db.close()
 
 
 def test_student_only_sees_study_materials_for_exact_course_scope(student, teacher):

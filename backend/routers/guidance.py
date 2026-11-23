@@ -281,6 +281,52 @@ def _filter_courses_for_diploma(courses: List[Course], profile: Optional[Student
     ]
 
 
+def _current_bachelor_stream(profile: Optional[StudentProfile]) -> Optional[str]:
+    if not profile:
+        return None
+
+    course = re.sub(r"[^a-z0-9]+", " ", (profile.course or "").casefold()).strip()
+    degree_patterns = (
+        (r"^(?:b a|ba|bachelor of arts)(?:\s|$)", "Humanities"),
+        (r"^(?:b com|bcom|bachelor of commerce)(?:\s|$)", "Commerce"),
+        (r"^(?:b sc|bsc|bachelor of science)(?:\s|$)", "Science"),
+        (r"^(?:b tech|b e|be|bachelor of engineering)(?:\s|$)", "Engineering"),
+        (r"^(?:bca|bachelor of computer applications)(?:\s|$)", "Computer Applications"),
+        (r"^(?:bba|bachelor of business administration)(?:\s|$)", "Management"),
+    )
+    return next(
+        (stream for pattern, stream in degree_patterns if re.search(pattern, course)),
+        None,
+    )
+
+
+def _bachelor_eligibility_fit(course: Course, current_stream: str) -> float:
+    eligibility = re.sub(r"[^a-z0-9]+", " ", (course.eligibility or "").casefold()).strip()
+    if any(term in eligibility for term in ("any bachelor", "any discipline", "any stream")):
+        return 0.5
+
+    stream_terms = {
+        "Humanities": ("humanities", "arts", "social science", "bachelor of arts", "b a"),
+        "Commerce": ("commerce", "bachelor of commerce", "b com", "bcom"),
+        "Science": ("science", "stem", "bachelor of science", "b sc", "bsc"),
+        "Engineering": ("engineering", "bachelor of engineering", "b tech", "b e"),
+        "Computer Applications": ("computer applications", "computer science", "bca"),
+        "Management": ("management", "business administration", "bba"),
+    }
+    return 1.0 if any(term in eligibility for term in stream_terms[current_stream]) else 0.0
+
+
+def _filter_courses_for_bachelor(
+    courses: List[Course],
+    current_stream: str,
+) -> List[Course]:
+    return [
+        course for course in courses
+        if (course.degree_level or "").casefold().startswith("postgraduate")
+        and _bachelor_eligibility_fit(course, current_stream) > 0
+    ]
+
+
 @router.get("/courses/recommend")
 def recommend_courses(
     db: Session = Depends(get_db),
@@ -346,13 +392,21 @@ def recommend_courses(
 
     courses = _filter_courses_for_diploma(db.query(Course).all(), profile)
     diploma_branch = _diploma_branch(profile)
+    current_bachelor_stream = _current_bachelor_stream(profile) if not diploma_branch else None
+    if current_bachelor_stream:
+        courses = _filter_courses_for_bachelor(courses, current_bachelor_stream)
 
     # Fallback: if no data, return eligible courses with equal weight.
     if not combined:
         reason = (
             "Possible lateral-entry pathway; verify the current admission rules and branch eligibility."
             if diploma_branch
-            else "Explore all career options"
+            else (
+                f"Postgraduate option after your current {profile.course.strip()} studies; "
+                "verify subject-specific admission eligibility."
+                if current_bachelor_stream and profile and profile.course
+                else "Explore all career options"
+            )
         )
         return [_course_dict(c, 50.0, reason) for c in courses]
 
@@ -361,7 +415,13 @@ def recommend_courses(
     max_score = max(combined.values()) if combined else 1
     for course in courses:
         raw = combined.get(course.stream, 0)
-        pct = min(100.0, (raw / max(max_score, 0.01)) * 100.0)
+        if current_bachelor_stream:
+            degree_fit = _bachelor_eligibility_fit(course, current_bachelor_stream)
+            raw += max(max_score, 1) * 0.35 * degree_fit
+            score_ceiling = max(max_score, 1) * 1.35
+        else:
+            score_ceiling = max(max_score, 0.01)
+        pct = min(100.0, (raw / score_ceiling) * 100.0)
 
         # Build reason string
         strong_subjects = [
@@ -371,7 +431,13 @@ def recommend_courses(
                 for subj in subject_map.get(course.stream.lower().replace(" ", "_"), [])
             )
         ]
-        if strong_subjects:
+        if current_bachelor_stream:
+            current_course = profile.course.strip() if profile and profile.course else "bachelor's"
+            reason = (
+                f"Postgraduate option after your current {current_course} studies; "
+                "verify subject-specific admission eligibility."
+            )
+        elif strong_subjects:
             reason = f"Strong in {', '.join(strong_subjects[:2])}"
         elif pct > 60:
             reason = f"Matches your interests and skills in {course.stream}"

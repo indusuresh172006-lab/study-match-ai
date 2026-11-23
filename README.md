@@ -38,6 +38,7 @@ StudyMatch AI is a modern web application designed for peer-learning study group
 ### Module 4: Higher Studies & Course Guidance
 - **Academic Roadmaps**: Step-by-step career journeys (Science, Commerce, Humanities) from Plus Two / 12th Standard through Undergraduate and Postgraduate specializations with actionable next steps.
 - **ML Course Recommender**: Combines the student's `SkillProfile` strengths (60%) and an 8-question Interest Questionnaire (40%) to calculate match percentages (0–100%) and plain-language reasoning (e.g., *"Strong in Mathematics and Computer Science"*).
+- **Study-Level-Aware Recommendations**: Students already enrolled in a recognized bachelor's program see eligible postgraduate pathways matched to their current field; diploma holders see branch-specific lateral-entry options.
 - **Side-by-Side Course Comparison**: Compare up to 3 courses across duration, fees, eligibility, accepted entrance exams, target job roles, salary ranges, and top colleges.
 - **Career Path Explorer**: Detailed 3-tier career progression (Entry → Mid → Senior), salary outlooks, higher-study options, and recommended professional certifications.
 - **Entrance Exams & Colleges**: Directory of national entrance exams (JEE Main, JEE Adv, NEET-UG, CUET-UG, KEAM, CLAT, GATE, CAT, NATA) and NIRF-ranked institutions with dates, eligibility, and links to official portals.

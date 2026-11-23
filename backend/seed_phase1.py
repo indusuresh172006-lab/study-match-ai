@@ -877,6 +877,65 @@ for pathway in diploma_pathways:
     if not existing:
         db.add(pathway)
         print(f"  ✔ Added pathway: {pathway.title}")
+
+postgraduate_pathways = [
+    Course(
+        title="M.A. in Humanities and Social Sciences",
+        stream="Humanities",
+        degree_level="Postgraduate",
+        duration_years=2.0,
+        eligibility=(
+            "Bachelor's degree in Humanities, Arts, or Social Sciences. "
+            "Subject-specific requirements vary by university."
+        ),
+        exams=["CUET-PG", "University entrance test"],
+        fee_range="Varies by university",
+        skills_needed=["Research", "Academic Writing", "Critical Thinking"],
+        job_roles=["Research Associate", "Policy Analyst", "Writer", "Civil Services"],
+        salary_range="Varies by role and qualification",
+        scope="Advanced study in a chosen humanities or social-science subject.",
+        top_colleges=["University of Delhi", "Jawaharlal Nehru University", "University of Calicut"],
+    ),
+    Course(
+        title="Master of Social Work (MSW)",
+        stream="Humanities",
+        degree_level="Postgraduate",
+        duration_years=2.0,
+        eligibility=(
+            "Bachelor's degree in any discipline. Minimum marks and entrance requirements "
+            "vary by institution."
+        ),
+        exams=["CUET-PG", "University entrance test"],
+        fee_range="Varies by university",
+        skills_needed=["Communication", "Empathy", "Community Research"],
+        job_roles=["Social Worker", "Community Development Officer", "NGO Program Officer"],
+        salary_range="Varies by role and location",
+        scope="Professional study for community development, social services, and public welfare.",
+        top_colleges=["Tata Institute of Social Sciences", "Delhi School of Social Work"],
+    ),
+    Course(
+        title="B.Ed (Bachelor of Education)",
+        stream="Humanities",
+        degree_level="Postgraduate / Professional",
+        duration_years=2.0,
+        eligibility=(
+            "Bachelor's degree in any discipline. Minimum marks and admission requirements "
+            "vary by institution and current regulations."
+        ),
+        exams=["University entrance test", "State B.Ed entrance test"],
+        fee_range="Varies by university",
+        skills_needed=["Communication", "Lesson Planning", "Classroom Management"],
+        job_roles=["School Teacher", "Education Coordinator", "Learning Designer"],
+        salary_range="Varies by role and institution",
+        scope="Professional teacher-education pathway after a bachelor's degree.",
+        top_colleges=["University of Delhi", "University of Calicut"],
+    ),
+]
+for pathway in postgraduate_pathways:
+    existing = db.query(Course).filter(Course.title == pathway.title).first()
+    if not existing:
+        db.add(pathway)
+        print(f"  ✔ Added postgraduate pathway: {pathway.title}")
 db.commit()
 
 
