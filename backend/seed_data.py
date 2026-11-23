@@ -30,7 +30,8 @@ def seed():
                 name="Alex Morgan",
                 email="student@studymatch.ai",
                 password_hash=get_password_hash("password123"),
-                role="student"
+                role="student",
+                approval_status="approved",
             )
             db.add(student_user)
             db.commit()
@@ -38,6 +39,7 @@ def seed():
             print("Created student: student@studymatch.ai / password123")
         else:
             student_user.role = "student"
+            student_user.approval_status = "approved"
             db.commit()
 
         teacher_user = db.query(Student).filter(Student.email == "teacher@studymatch.ai").first()
@@ -46,7 +48,8 @@ def seed():
                 name="Dr. Sarah Jenkins",
                 email="teacher@studymatch.ai",
                 password_hash=get_password_hash("password123"),
-                role="teacher"
+                role="teacher",
+                approval_status="approved",
             )
             db.add(teacher_user)
             db.commit()
@@ -54,6 +57,7 @@ def seed():
             print("Created teacher: teacher@studymatch.ai / password123")
         else:
             teacher_user.role = "teacher"
+            teacher_user.approval_status = "approved"
             db.commit()
 
         # Seed profile

@@ -1,6 +1,6 @@
 import datetime
-from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from typing import List, Optional, Dict, Any, Union
+from fastapi import FastAPI, Depends, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, desc
@@ -8,14 +8,14 @@ from sqlalchemy import func, or_, desc
 from database import engine, Base, get_db
 from academic_scope import normalize_academic_year
 from models import (
-    Student, StudentProfile, SkillProfile, StudyMaterial, MaterialBookmark,
+    Student, StudentProfile, TeacherProfile, SkillProfile, StudyMaterial, MaterialBookmark,
     QuestionBank, MockTest, MockTestResponse, PreviousPaper, PaperQuestion,
     PaperAttempt, GuidanceCourse, InterestProfile, CourseSummary, MentorChatMessage,
     Subject, Topic, QuizAttempt,
     StudyClass, ClassEnrollment
 )
 from schemas import (
-    StudentRegister, StudentLogin, StudentResponse, TokenResponse,
+    StudentRegister, StudentLogin, StudentResponse, TeacherRegistrationPendingResponse, TokenResponse,
     ProfileCreate, ProfileResponse,
     SkillProfileItem, SkillSummaryResponse,
     StudyMaterialCreate, StudyMaterialUpdate, StudyMaterialResponse, StudyMaterialListResponse, BookmarkToggleResponse,
@@ -34,7 +34,7 @@ from auth import (
 from ai_mentor import get_mentor_response
 
 # Core & Module routers
-from routers import auth, academic, quiz, groups, revision, guidance, mock_tests_v2, chatbot, classes
+from routers import auth, academic, quiz, groups, revision, guidance, mock_tests_v2, chatbot, classes, admin
 
 # Initialize database schema if not present
 Base.metadata.create_all(bind=engine)
@@ -64,6 +64,7 @@ app.include_router(revision.router, prefix="/api/v1", tags=["Module 10 - AI Revi
 app.include_router(guidance.router, prefix="/api/v1/guidance", tags=["Module 4 - Higher Studies Guidance"])
 app.include_router(mock_tests_v2.router, prefix="/api/v1", tags=["Module 5 - Tests & Papers"])
 app.include_router(chatbot.router, prefix="/api/v1/chat", tags=["Module 6 - AI Chatbot"])
+app.include_router(admin.router, prefix="/api/v1", tags=["Admin"])
 
 
 # =====================================================================
@@ -80,10 +81,40 @@ def home():
     }
 
 
-@app.post("/register", response_model=StudentResponse)
-def register_student(payload: StudentRegister, db: Session = Depends(get_db)):
+@app.post(
+    "/register",
+    response_model=Union[StudentResponse, TeacherRegistrationPendingResponse],
+)
+def register_student(
+    payload: StudentRegister,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    user_role = (payload.role or "student").strip().lower()
+    if user_role not in {"student", "teacher"}:
+        raise HTTPException(status_code=422, detail="Registration role must be student or teacher.")
+
+    if user_role == "teacher":
+        subject = (payload.subject or "").strip()
+        college = (payload.college or "").strip()
+        semester = (payload.semester or "").strip()
+        if not subject or not college or not semester:
+            raise HTTPException(
+                status_code=422,
+                detail="Teacher registration requires a subject, college, and semester.",
+            )
+        if payload.class_code and payload.class_code.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="Teacher requests cannot enroll in a student class.",
+            )
+    else:
+        subject = ""
+        college = ""
+        semester = ""
+
     study_class = None
-    if payload.class_code and payload.class_code.strip():
+    if user_role == "student" and payload.class_code and payload.class_code.strip():
         study_class = db.query(StudyClass).filter(
             StudyClass.join_code == payload.class_code.strip().upper(),
             StudyClass.is_active.is_(True),
@@ -94,21 +125,45 @@ def register_student(payload: StudentRegister, db: Session = Depends(get_db)):
                 detail="Class code is invalid or inactive.",
             )
 
-    existing = db.query(Student).filter(Student.email == payload.email).first()
+    email = str(payload.email).strip().lower()
+    existing = db.query(Student).filter(func.lower(Student.email) == email).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email is already registered"
         )
 
-    user_role = "student"
     new_user = Student(
-        name=payload.name,
-        email=payload.email,
+        name=payload.name.strip(),
+        email=email,
         password_hash=get_password_hash(payload.password),
-        role=user_role
+        role=user_role,
+        approval_status="pending" if user_role == "teacher" else "approved",
     )
     db.add(new_user)
+    db.flush()
+
+    if user_role == "teacher":
+        db.add(TeacherProfile(
+            teacher_id=new_user.id,
+            department=subject,
+            designation="Faculty Instructor",
+            college=college,
+            subject=subject,
+            semester=semester,
+        ))
+        db.commit()
+        db.refresh(new_user)
+        response.status_code = status.HTTP_202_ACCEPTED
+        return TeacherRegistrationPendingResponse(
+            id=new_user.id,
+            name=new_user.name,
+            email=new_user.email,
+            role=new_user.role,
+            approval_status=new_user.approval_status,
+            message="Teacher request submitted. Dashboard access is available after admin approval.",
+        )
+
     db.commit()
     db.refresh(new_user)
 
@@ -149,12 +204,20 @@ def register_student(payload: StudentRegister, db: Session = Depends(get_db)):
 
 @app.post("/login", response_model=TokenResponse)
 def login_student(payload: StudentLogin, db: Session = Depends(get_db)):
-    user = db.query(Student).filter(Student.email == payload.email).first()
+    email = str(payload.email).strip().lower()
+    user = db.query(Student).filter(func.lower(Student.email) == email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
+    if user.role == "teacher" and user.approval_status != "approved":
+        detail = (
+            "Your teacher account request was not approved."
+            if user.approval_status == "rejected"
+            else "Your teacher account is awaiting admin approval."
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     return TokenResponse(
@@ -1373,11 +1436,13 @@ def get_teacher_dashboard(
 ):
     study_class = None
     if class_id is not None:
-        study_class = db.query(StudyClass).filter(
+        class_query = db.query(StudyClass).filter(
             StudyClass.id == class_id,
-            StudyClass.teacher_id == current_teacher.id,
             StudyClass.is_active.is_(True),
-        ).first()
+        )
+        if current_teacher.role != "admin":
+            class_query = class_query.filter(StudyClass.teacher_id == current_teacher.id)
+        study_class = class_query.first()
         if not study_class:
             raise HTTPException(status_code=404, detail="Class not found.")
         student_ids = [

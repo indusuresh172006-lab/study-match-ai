@@ -79,8 +79,16 @@ function BottomNavIcon({ name }) {
 
 function BottomNav({ user }) {
   const isTeacher = user?.role === "teacher";
+  const isAdmin = user?.role === "admin";
 
-  const navItems = isTeacher
+  const navItems = isAdmin
+    ? [
+        { to: "/admin", label: "Admin", icon: "teacher" },
+        { to: "/materials", label: "Notes", icon: "notes" },
+        { to: "/mock-tests", label: "Tests", icon: "quiz" },
+        { to: "/teacher/manage", label: "Manage", icon: "manage" },
+      ]
+    : isTeacher
     ? [
         { to: "/dashboard", label: "Dashboard", icon: "dashboard" },
         { to: "/materials", label: "Notes", icon: "notes" },

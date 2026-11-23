@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from database import SessionLocal
-from models import Student, StudentProfile, TeacherProfile
+from models import Student, StudentProfile, TeacherProfile, StudyClass
 from auth import get_password_hash
 
 API = "/api/v1"
@@ -67,6 +67,21 @@ def teacher():
         db.refresh(user)
         db.add(TeacherProfile(teacher_id=user.id, department="CSE",
                               designation="Faculty Instructor", college="Test College"))
+        db.commit()
+    finally:
+        db.close()
+    token = _login(email).json()["access_token"]
+    yield {"email": email, "token": token}
+    _delete_user(email)
+
+
+@pytest.fixture
+def admin():
+    email = _email("admin")
+    db = SessionLocal()
+    try:
+        db.add(Student(name="HTTP Admin", email=email,
+                       password_hash=get_password_hash(PASSWORD), role="admin"))
         db.commit()
     finally:
         db.close()
@@ -140,6 +155,83 @@ def test_student_can_request_teacher_study_support(student):
     assert requests.json()[0]["request_type"] == "study_support"
 
 
+def test_non_admin_cannot_access_admin_overview(student):
+    response = client.get(
+        f"{API}/admin/overview", headers=_auth(student["token"])
+    )
+    assert response.status_code == 403
+    teacher_dashboard = client.get(
+        "/teacher/dashboard", headers=_auth(student["token"])
+    )
+    assert teacher_dashboard.status_code == 403
+
+
+def test_admin_can_create_teacher_and_manage_global_classes(admin):
+    teacher_email = _email("provisioned_teacher")
+    class_id = None
+    try:
+        teacher_response = client.post(
+            f"{API}/admin/teachers",
+            headers=_auth(admin["token"]),
+            json={
+                "name": "Provisioned Teacher",
+                "email": teacher_email,
+                "password": PASSWORD,
+                "subject": "Computer Science",
+                "college": "Test College",
+                "semester": "Semester 5",
+            },
+        )
+        assert teacher_response.status_code == 201, teacher_response.text
+        teacher = teacher_response.json()
+        assert teacher["role"] == "teacher"
+
+        class_response = client.post(
+            f"{API}/admin/classes",
+            headers=_auth(admin["token"]),
+            json={
+                "name": "Admin Managed Class",
+                "course": "Test Course",
+                "curriculum": "Test Institute",
+                "academic_year": "Semester 1",
+                "teacher_id": teacher["id"],
+            },
+        )
+        assert class_response.status_code == 201, class_response.text
+        class_id = class_response.json()["id"]
+
+        classes_response = client.get(
+            f"{API}/admin/classes?include_inactive=true",
+            headers=_auth(admin["token"]),
+        )
+        assert classes_response.status_code == 200
+        assert any(item["id"] == class_id for item in classes_response.json())
+
+        dashboard_response = client.get(
+            f"/teacher/dashboard?class_id={class_id}",
+            headers=_auth(admin["token"]),
+        )
+        assert dashboard_response.status_code == 200, dashboard_response.text
+        assert dashboard_response.json()["total_students"] == 0
+
+        update_response = client.patch(
+            f"{API}/admin/classes/{class_id}",
+            headers=_auth(admin["token"]),
+            json={"is_active": False},
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["is_active"] is False
+    finally:
+        if class_id is not None:
+            db = SessionLocal()
+            try:
+                db.query(StudyClass).filter(StudyClass.id == class_id).delete()
+                db.commit()
+            finally:
+                db.close()
+        _delete_user(teacher_email)
+
+
 def test_student_only_sees_study_materials_for_exact_course_scope(student, teacher):
     profile = client.put(
         f"{API}/auth/profile",
@@ -195,15 +287,51 @@ def test_student_only_sees_study_materials_for_exact_course_scope(student, teach
             )
 
 
-def test_register_cannot_create_teacher():
-    """SECURITY: public sign-up must never grant the teacher role."""
-    email = _email("sneaky")
+def test_teacher_signup_requires_admin_approval(admin):
+    email = _email("teacher_request")
     try:
-        res = client.post(f"{API}/auth/register", json={
-            "name": "Sneaky", "email": email, "password": PASSWORD, "role": "teacher"})
-        assert res.status_code in (201, 400, 403)
-        if res.status_code == 201:
-            assert res.json()["user"]["role"] == "student"
+        request = client.post(f"{API}/auth/register", json={
+            "name": "Teacher Applicant",
+            "email": email,
+            "password": PASSWORD,
+            "role": "teacher",
+            "subject": "Mathematics",
+            "college": "Test College",
+            "semester": "Semester 3",
+        })
+        assert request.status_code == 202, request.text
+        teacher_request = request.json()
+        assert teacher_request["role"] == "teacher"
+        assert teacher_request["approval_status"] == "pending"
+        assert "access_token" not in teacher_request
+
+        login = client.post(f"{API}/auth/login", json={
+            "email": email, "password": PASSWORD,
+        })
+        assert login.status_code == 403
+        assert "awaiting admin approval" in login.json()["detail"]
+
+        pending = client.get(
+            f"{API}/admin/teacher-requests", headers=_auth(admin["token"])
+        )
+        assert pending.status_code == 200
+        request_details = next(item for item in pending.json() if item["id"] == teacher_request["id"])
+        assert request_details["subject"] == "Mathematics"
+        assert request_details["college"] == "Test College"
+
+        approval = client.patch(
+            f"{API}/admin/teacher-requests/{teacher_request['id']}",
+            headers=_auth(admin["token"]),
+            json={"decision": "approve"},
+        )
+        assert approval.status_code == 200
+        assert approval.json()["approval_status"] == "approved"
+
+        approved_login = client.post(f"{API}/auth/login", json={
+            "email": email, "password": PASSWORD,
+        })
+        assert approved_login.status_code == 200
+        assert approved_login.json()["user"]["role"] == "teacher"
     finally:
         _delete_user(email)
 
@@ -346,15 +474,22 @@ def test_create_topic_invalid_body_returns_422(teacher):
     assert res.status_code == 422
 
 
-def test_legacy_register_cannot_create_teacher():
-    """SECURITY: the /register route used by the React app must also force student."""
-    email = _email("legacy")
+def test_legacy_teacher_signup_is_pending_until_approval():
+    email = _email("legacy_teacher")
     try:
         res = client.post("/register", json={
             "name": "Legacy Sneaky", "email": email,
-            "password": PASSWORD, "role": "teacher"})
-        assert res.status_code == 200, res.text
-        assert res.json()["role"] == "student"
+            "password": PASSWORD,
+            "role": "teacher",
+            "subject": "Science",
+            "college": "Test Institute",
+            "semester": "Semester 2",
+        })
+        assert res.status_code == 202, res.text
+        assert res.json()["role"] == "teacher"
+        assert res.json()["approval_status"] == "pending"
+        login = client.post("/login", json={"email": email, "password": PASSWORD})
+        assert login.status_code == 403
     finally:
         _delete_user(email)
 

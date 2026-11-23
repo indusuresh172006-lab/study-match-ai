@@ -1656,6 +1656,10 @@ body {
   gap: 20px;
 }
 
+.teacher-classes-grid.admin-classes-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .teacher-class-form,
 .teacher-class-roster {
   display: grid;

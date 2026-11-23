@@ -6,6 +6,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from fastapi import Response
 from database import SessionLocal
 from models import Student, Subject, Topic
 from auth import create_access_token
@@ -35,7 +36,7 @@ def run_day1_tests():
             phone="9876543210",
             learning_interests=["Machine Learning", "System Design"],
         )
-        reg_res = auth_router.register_user(reg_req, db=db)
+        reg_res = auth_router.register_user(reg_req, response=Response(), db=db)
         assert reg_res["access_token"] is not None
         assert reg_res["user"].role == "student"
         assert reg_res["user"].profile.department == "Computer Science"

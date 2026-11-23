@@ -1,7 +1,7 @@
 import datetime
 from sqlalchemy import (
     Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, JSON,
-    Index, UniqueConstraint, func,
+    Index, UniqueConstraint, CheckConstraint, func,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -18,6 +18,14 @@ class Student(Base):
     email = Column(String(150), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="student", nullable=False) # 'student' or 'teacher' or 'admin'
+    approval_status = Column(String(20), default="approved", server_default="approved", nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "approval_status IN ('pending', 'approved', 'rejected')",
+            name="ck_students_approval_status",
+        ),
+    )
 
     profile = relationship("StudentProfile", back_populates="student", uselist=False, cascade="all, delete-orphan")
     skills = relationship("SkillProfile", back_populates="student", cascade="all, delete-orphan")
@@ -63,6 +71,8 @@ class TeacherProfile(Base):
     department = Column(String(100), nullable=True)
     designation = Column(String(100), nullable=True)
     college = Column(String(150), nullable=True)
+    subject = Column(String(100), nullable=True)
+    semester = Column(String(20), nullable=True)
 
     teacher = relationship("Student", foreign_keys=[teacher_id])
 

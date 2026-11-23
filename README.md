@@ -167,7 +167,13 @@ CREATE DATABASE studymatch_db;
    ```
    The migration chain reconciles partially applied course-syllabus schema and adds course scope to mock tests, summaries, and uploaded question papers.
 
-5. **Seed Sample Data**:
+5. **Create the First Administrator (one time)**:
+   ```powershell
+   python create_admin.py
+   ```
+   Run this from `backend/` after migrations. It prompts for the initial admin name, email, and password and refuses to create another bootstrap admin once one exists. Sign in with that account to provision teacher accounts and administer classes; do not use a shared default admin password.
+
+6. **Seed Sample Data (optional)**:
    ```powershell
    python seed_data.py
    python seed_phase1.py
@@ -175,7 +181,7 @@ CREATE DATABASE studymatch_db;
    ```
    `seed_phase1.py` also upserts diploma lateral-entry guidance when rerun, even if the general guidance catalogue was already seeded. `seed_diploma_computer_sem3.py` adds the SITTTR Revision 2021 Computer Engineering Semester III course list, starter practice topics and quizzes, a course-scoped mock test, course summaries, and separate study notes for Polytechnic College Kannur. The course list is from the official SITTTR catalog; teachers should verify the starter topics and questions against the detailed syllabus. Mock tests, summaries, and uploaded question papers are scoped to a course, institution, and semester. Teachers upload official question-paper and answer-key PDFs; approved files are available for students to download.
 
-6. **Start the FastAPI Server**:
+7. **Start the FastAPI Server**:
    ```powershell
    uvicorn main:app --reload --port 8000
    ```
@@ -209,6 +215,11 @@ CREATE DATABASE studymatch_db;
 |---|---|---|---|
 | **Student** | `student@studymatch.ai` | `password123` | Dashboard, Study Materials, Course Guidance, AI Mentor, Mock Tests, Summaries, Solved Papers, Global Floating Chatbot |
 | **Teacher** | `teacher@studymatch.ai` | `password123` | All student features + Teacher Dashboard, Class Weak Topics Heatmap, At-Risk Student Interventions, Counselling Queue, Guidance Doc Curation, Test Authoring |
+| **Admin** | Created interactively with `python create_admin.py` | Chosen during setup | Global Teacher Dashboard sections, account provisioning, and class administration |
+
+Administrators sign in through the normal login page and are sent to `/admin`. The dashboard can provision teacher accounts, assign and manage classes, and review platform-wide teacher workflows. Admin accounts cannot be created through public registration; the first one must be bootstrapped from the backend CLI.
+
+On the public registration page, select **Teacher** and provide the subject, college/institution, and semester taught. The request remains pending and the account cannot log in until an administrator approves it from **Teacher account requests** in `/admin`. Rejected requests cannot access the teacher dashboard.
 
 ---
 

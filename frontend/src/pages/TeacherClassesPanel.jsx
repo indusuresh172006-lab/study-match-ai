@@ -8,7 +8,7 @@ const EMPTY_CLASS = {
   academic_year: "",
 };
 
-function TeacherClassesPanel({ onSelectedClassChange }) {
+function TeacherClassesPanel({ onSelectedClassChange, isAdmin = false }) {
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [form, setForm] = useState(EMPTY_CLASS);
@@ -108,7 +108,9 @@ function TeacherClassesPanel({ onSelectedClassChange }) {
         <div>
           <h3>🏫 Classes, Enrollment & Marks</h3>
           <p className="subtext">
-            Create a scoped class, share its join code, and import topic-tagged CSV/XLSX marks.
+            {isAdmin
+              ? "Review class rosters and import topic-tagged CSV/XLSX marks across the platform."
+              : "Create a scoped class, share its join code, and import topic-tagged CSV/XLSX marks."}
           </p>
         </div>
       </div>
@@ -116,8 +118,8 @@ function TeacherClassesPanel({ onSelectedClassChange }) {
       {error && <p className="auth-error-msg" role="alert">{error}</p>}
       {notice && <p className="scope-feedback" role="status">{notice}</p>}
 
-      <div className="teacher-classes-grid">
-        <form className="teacher-class-form" onSubmit={createClass}>
+      <div className={`teacher-classes-grid ${isAdmin ? "admin-classes-grid" : ""}`}>
+        {!isAdmin && <form className="teacher-class-form" onSubmit={createClass}>
           <h4>Create a class</h4>
           <label>
             Class name
@@ -162,14 +164,14 @@ function TeacherClassesPanel({ onSelectedClassChange }) {
           <button className="action-btn-primary" type="submit" disabled={saving}>
             {saving ? "Creating..." : "Create class and join code"}
           </button>
-        </form>
+        </form>}
 
         <div className="teacher-class-roster">
-          <h4>Your classes</h4>
+          <h4>{isAdmin ? "Platform classes" : "Your classes"}</h4>
           {loading ? (
             <p className="subtext">Loading classes...</p>
           ) : classes.length === 0 ? (
-            <p className="subtext">Create a class to get a student join code.</p>
+            <p className="subtext">{isAdmin ? "Create a class above to get a student join code." : "Create a class to get a student join code."}</p>
           ) : (
             <>
               <label>

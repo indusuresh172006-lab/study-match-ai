@@ -5,7 +5,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorMessage from "../components/ErrorMessage";
 import TeacherClassesPanel from "./TeacherClassesPanel";
 
-function TeacherDashboard({ user }) {
+function TeacherDashboard({ user, isAdmin = false }) {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
@@ -239,7 +239,7 @@ function TeacherDashboard({ user }) {
       {/* Header */}
       <div className="page-header-row">
         <div>
-          <h2>👨‍🏫 Teacher Academic Command Center ({user?.name || "Teacher"})</h2>
+          <h2>{isAdmin ? "🌐 Platform Academic Command Center" : "👨‍🏫 Teacher Academic Command Center"} ({user?.name || (isAdmin ? "Admin" : "Teacher")})</h2>
           <p className="page-subtitle">
             Monitor class-wide weak topics, respond to career counselling requests, curate verified guidance documents, and publish instructional resources.
           </p>
@@ -260,7 +260,7 @@ function TeacherDashboard({ user }) {
         </div>
       </div>
 
-      <TeacherClassesPanel onSelectedClassChange={handleSelectedClassChange} />
+      <TeacherClassesPanel isAdmin={isAdmin} onSelectedClassChange={handleSelectedClassChange} />
 
       <section className="teacher-section-card" style={{ marginBottom: "28px" }}>
         <div className="card-head-row">

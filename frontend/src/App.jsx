@@ -18,6 +18,7 @@ import CourseSummaries from "./pages/CourseSummaries";
 import PreviousPapers from "./pages/PreviousPapers";
 import StudentProfile from "./pages/StudentProfile";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -79,9 +80,13 @@ function App() {
           path="/dashboard"
           element={
             user ? (
-              <Layout user={user} onLogout={handleLogout}>
-                <StudentDashboard user={user} />
-              </Layout>
+              user.role === "admin" ? (
+                <Navigate to="/admin" replace />
+              ) : (
+                <Layout user={user} onLogout={handleLogout}>
+                  <StudentDashboard user={user} />
+                </Layout>
+              )
             ) : (
               <Navigate to="/login" replace />
             )
@@ -221,21 +226,33 @@ function App() {
         <Route
           path="/teacher"
           element={
-            user ? (
+            user && user.role === "teacher" ? (
               <Layout user={user} onLogout={handleLogout}>
                 <TeacherDashboard user={user} />
               </Layout>
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to={user?.role === "admin" ? "/admin" : user ? "/dashboard" : "/login"} replace />
             )
           }
         />
 
-        {/* Catch-all fallback */}
+        <Route
+          path="/admin"
+          element={
+            user && user.role === "admin" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <AdminDashboard user={user} />
+              </Layout>
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
+            )
+          }
+        />
+
         <Route
           path="/teacher/manage"
           element={
-            user && user.role === "teacher" ? (
+            user && ["teacher", "admin"].includes(user.role) ? (
               <Layout user={user} onLogout={handleLogout}>
                 <TeacherManagement />
               </Layout>

@@ -8,11 +8,11 @@ import ChatWidget from "./ChatWidget";
 function Layout({ user, onLogout, children }) {
   const location = useLocation();
   const isMentorPage = location.pathname === "/mentor";
-  const isTeacher = user?.role === "teacher";
+  const isStaff = ["teacher", "admin"].includes(user?.role);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className={`app-layout ${isTeacher ? "teacher-layout" : "student-layout"}`}>
+    <div className={`app-layout ${isStaff ? "teacher-layout" : "student-layout"}`}>
       <Navbar
         user={user}
         onLogout={onLogout}
@@ -31,7 +31,7 @@ function Layout({ user, onLogout, children }) {
       </div>
       <BottomNav user={user} />
       {/* Floating AI Mentor Chatbot accessible everywhere for students except full mentor page */}
-      {!isMentorPage && !isTeacher && <ChatWidget user={user} />}
+      {!isMentorPage && !isStaff && <ChatWidget user={user} />}
     </div>
   );
 }

@@ -93,7 +93,7 @@ def list_papers(
     current_user: Student = Depends(get_current_user)
 ):
     q = db.query(QuestionPaper)
-    if current_user.role != "teacher":
+    if current_user.role not in {"teacher", "admin"}:
         q = q.filter(QuestionPaper.approval_status == "approved")
     if exam:
         q = q.filter(QuestionPaper.exam_name.ilike(f"%{exam}%"))
@@ -159,7 +159,7 @@ def get_paper(
     paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    if current_user.role != "teacher" and (
+    if current_user.role not in {"teacher", "admin"} and (
         paper.approval_status != "approved"
         or not _paper_matches_student_scope(
             paper, _student_test_scope(db, current_user)
@@ -300,7 +300,7 @@ def download_paper_file(
     paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found.")
-    if current_user.role != "teacher" and (
+    if current_user.role not in {"teacher", "admin"} and (
         paper.approval_status != "approved"
         or not _paper_matches_student_scope(
             paper, _student_test_scope(db, current_user)
@@ -400,7 +400,7 @@ def list_tests(
     current_user: Student = Depends(get_current_user)
 ):
     q = db.query(Test)
-    if current_user.role != "teacher":
+    if current_user.role not in {"teacher", "admin"}:
         q = q.filter(Test.is_published.is_(True), Test.approval_status == "approved")
     if subject:
         q = q.filter(Test.subject.ilike(f"%{subject}%"))
@@ -534,7 +534,7 @@ def get_test(
         test, _student_test_scope(db, current_user)
     ):
         raise HTTPException(status_code=404, detail="Test not found")
-    if current_user.role != "teacher" and (
+    if current_user.role not in {"teacher", "admin"} and (
         not test.is_published or test.approval_status != "approved"
     ):
         raise HTTPException(status_code=404, detail="Test not found")

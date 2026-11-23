@@ -1,8 +1,10 @@
 function Navbar({ user, onLogout, mobileMenuOpen, onMenuToggle }) {
+  const isStaff = ["teacher", "admin"].includes(user?.role);
+
   return (
     <header className="app-navbar">
       <div className="navbar-brand">
-        {user?.role !== "teacher" && (
+        {!isStaff && (
           <button
             className="mobile-menu-toggle"
             type="button"

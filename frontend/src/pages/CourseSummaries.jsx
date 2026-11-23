@@ -107,7 +107,7 @@ function CourseSummaries({ user }) {
     }
   };
 
-  const isTeacher = user?.role === "teacher";
+  const isTeacher = ["teacher", "admin"].includes(user?.role);
 
   return (
     <div className="course-summaries-page">

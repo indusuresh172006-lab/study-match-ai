@@ -7,7 +7,7 @@ import EmptyState from "../components/EmptyState";
 
 function PreviousPapers({ user }) {
   const navigate = useNavigate();
-  const isTeacher = user?.role === "teacher";
+  const isTeacher = ["teacher", "admin"].includes(user?.role);
 
   // Views: 'list' | 'study' | 'timed_exam' | 'exam_result'
   const [viewMode, setViewMode] = useState("list");

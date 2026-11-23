@@ -262,9 +262,10 @@ def generate_study_groups(
     if req.class_id is not None:
         study_class = db.query(StudyClass).filter(
             StudyClass.id == req.class_id,
-            StudyClass.teacher_id == current_user.id,
             StudyClass.is_active.is_(True),
         ).first()
+        if study_class and current_user.role != "admin" and study_class.teacher_id != current_user.id:
+            study_class = None
         if not study_class:
             raise HTTPException(status_code=404, detail="Class not found.")
         students = db.query(Student).join(ClassEnrollment).filter(
@@ -490,7 +491,7 @@ def review_study_group(
     group = db.query(StudyGroup).filter(StudyGroup.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Study group not found.")
-    if group.created_by != current_teacher.id:
+    if current_teacher.role != "admin" and group.created_by != current_teacher.id:
         owns_class = group.class_id is not None and db.query(StudyClass.id).filter(
             StudyClass.id == group.class_id,
             StudyClass.teacher_id == current_teacher.id,
@@ -526,6 +527,8 @@ def list_study_groups(
             StudyGroup.created_by == current_user.id,
             StudyGroup.class_id.in_(class_ids),
         )).filter(StudyGroup.status.in_(["active", "pending"]))
+    elif current_user.role == "admin":
+        query = query.filter(StudyGroup.status.in_(["active", "pending"]))
     else:
         query = query.join(GroupMember).filter(
             GroupMember.student_id == current_user.id,

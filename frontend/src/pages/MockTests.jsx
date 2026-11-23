@@ -18,7 +18,7 @@ import {
 
 function MockTests({ user }) {
   const navigate = useNavigate();
-  const isTeacher = user?.role === "teacher";
+  const isTeacher = ["teacher", "admin"].includes(user?.role);
 
   // Mode: 'browse' | 'running' | 'result'
   const [viewMode, setViewMode] = useState("browse");

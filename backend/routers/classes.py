@@ -132,12 +132,14 @@ def parse_mark_rows(filename: str, content: bytes) -> List[Dict[str, Any]]:
     return normalized_rows
 
 
-def _owned_class(db: Session, class_id: int, teacher_id: int) -> StudyClass:
-    study_class = db.query(StudyClass).filter(
+def _owned_class(db: Session, class_id: int, current_user: Student) -> StudyClass:
+    query = db.query(StudyClass).filter(
         StudyClass.id == class_id,
-        StudyClass.teacher_id == teacher_id,
         StudyClass.is_active.is_(True),
-    ).first()
+    )
+    if current_user.role != "admin":
+        query = query.filter(StudyClass.teacher_id == current_user.id)
+    study_class = query.first()
     if not study_class:
         raise HTTPException(status_code=404, detail="Class not found.")
     return study_class
@@ -189,7 +191,7 @@ def list_my_classes(
     query = db.query(StudyClass)
     if current_user.role == "teacher":
         query = query.filter(StudyClass.teacher_id == current_user.id)
-    else:
+    elif current_user.role == "student":
         query = query.join(ClassEnrollment).filter(
             ClassEnrollment.student_id == current_user.id
         )
@@ -201,7 +203,7 @@ def list_my_classes(
             roster_size=db.query(ClassEnrollment.id).filter(
                 ClassEnrollment.class_id == study_class.id
             ).count(),
-            include_code=current_user.role == "teacher",
+            include_code=current_user.role in {"teacher", "admin"},
         )
         for study_class in classes
     ]
@@ -246,7 +248,7 @@ def list_class_students(
     current_teacher: Student = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    _owned_class(db, class_id, current_teacher.id)
+    _owned_class(db, class_id, current_teacher)
     enrollments = db.query(ClassEnrollment).filter(
         ClassEnrollment.class_id == class_id
     ).order_by(ClassEnrollment.joined_at).all()
@@ -267,7 +269,7 @@ def list_mark_imports(
     current_teacher: Student = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    _owned_class(db, class_id, current_teacher.id)
+    _owned_class(db, class_id, current_teacher)
     batches = db.query(MarkImportBatch).filter(
         MarkImportBatch.class_id == class_id
     ).order_by(MarkImportBatch.created_at.desc()).all()
@@ -289,7 +291,7 @@ async def import_class_marks(
     current_teacher: Student = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    study_class = _owned_class(db, class_id, current_teacher.id)
+    study_class = _owned_class(db, class_id, current_teacher)
     content = await file.read(MAX_MARK_FILE_BYTES + 1)
     if len(content) > MAX_MARK_FILE_BYTES:
         raise HTTPException(status_code=413, detail="Marks file must be 5 MB or smaller.")

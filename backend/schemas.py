@@ -10,6 +10,7 @@ class StudentRegister(BaseModel):
     password: str = Field(..., min_length=6)
     role: Optional[str] = "student" # 'student' or 'teacher'
     course: Optional[str] = Field(None, max_length=100)
+    subject: Optional[str] = Field(None, max_length=100)
     college: Optional[str] = Field(None, max_length=150)
     semester: Optional[str] = Field(None, max_length=20)
     class_code: Optional[str] = Field(None, max_length=16)
@@ -27,6 +28,15 @@ class StudentResponse(BaseModel):
     role: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TeacherRegistrationPendingResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: str
+    approval_status: str
+    message: str
 
 
 class TokenResponse(BaseModel):

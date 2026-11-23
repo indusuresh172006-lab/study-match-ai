@@ -2,8 +2,10 @@ import { NavLink } from "react-router-dom";
 
 function Sidebar({ user, mobileOpen, onClose }) {
   const isTeacher = user?.role === "teacher";
+  const isAdmin = user?.role === "admin";
+  const isStaff = isTeacher || isAdmin;
 
-  const navItems = [
+  const studentNavItems = [
     { to: "/dashboard", label: "Dashboard", icon: "📊" },
     { to: "/quiz", label: "Topic Quiz", icon: "🎯" },
     { to: "/groups", label: "Study Groups", icon: "👥" },
@@ -16,18 +18,28 @@ function Sidebar({ user, mobileOpen, onClose }) {
     { to: "/papers", label: "Previous Papers", icon: "📄" },
   ];
 
-  if (!isTeacher) {
-    navItems.splice(1, 0, { to: "/profile", label: "My Profile", icon: "👤" });
-  }
+  const navItems = isAdmin
+    ? [
+        { to: "/admin", label: "Admin Dashboard", icon: "🛡️" },
+        { to: "/materials", label: "Study Materials", icon: "📚" },
+        { to: "/summaries", label: "Course Summaries", icon: "📖" },
+        { to: "/mock-tests", label: "Mock Tests", icon: "📝" },
+        { to: "/papers", label: "Previous Papers", icon: "📄" },
+        { to: "/teacher/manage", label: "Manage Content", icon: "🛠️" },
+      ]
+    : [...studentNavItems];
 
   if (isTeacher) {
     navItems.push({ to: "/teacher", label: "Teacher Dashboard", icon: "👨‍🏫" });
     navItems.push({ to: "/teacher/manage", label: "Manage Content", icon: "🛠️" });
   }
+  if (!isStaff) {
+    navItems.splice(1, 0, { to: "/profile", label: "My Profile", icon: "👤" });
+  }
 
   return (
     <>
-      {!isTeacher && mobileOpen && (
+      {!isStaff && mobileOpen && (
         <button
           className="mobile-sidebar-backdrop"
           type="button"
@@ -36,8 +48,8 @@ function Sidebar({ user, mobileOpen, onClose }) {
         />
       )}
       <aside
-        id={!isTeacher ? "student-mobile-sidebar" : undefined}
-        className={`app-sidebar ${!isTeacher ? "student-mobile-sidebar" : ""} ${mobileOpen && !isTeacher ? "mobile-open" : ""}`}
+        id={!isStaff ? "student-mobile-sidebar" : undefined}
+        className={`app-sidebar ${!isStaff ? "student-mobile-sidebar" : ""} ${mobileOpen && !isStaff ? "mobile-open" : ""}`}
       >
         <div className="sidebar-top">
           <div className="sidebar-menu-heading">NAVIGATION</div>
