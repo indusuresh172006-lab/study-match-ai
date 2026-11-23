@@ -83,10 +83,11 @@ function BottomNav({ user }) {
 
   const navItems = isAdmin
     ? [
-        { to: "/admin", label: "Admin", icon: "teacher" },
-        { to: "/materials", label: "Notes", icon: "notes" },
-        { to: "/mock-tests", label: "Tests", icon: "quiz" },
-        { to: "/teacher/manage", label: "Manage", icon: "manage" },
+        { to: "/admin", label: "Reports", icon: "dashboard" },
+        { to: "/admin/manage/teacher-requests", label: "Requests", icon: "teacher" },
+        { to: "/admin/manage/accounts", label: "Accounts", icon: "profile" },
+        { to: "/admin/manage/classes", label: "Classes", icon: "groups" },
+        { to: "/admin/manage/content", label: "Content", icon: "manage" },
       ]
     : isTeacher
     ? [
@@ -111,6 +112,7 @@ function BottomNav({ user }) {
         <NavLink
           key={item.to}
           to={item.to}
+          end={item.to === "/admin"}
           className={({ isActive }) =>
             `bottom-nav-item ${isActive ? "active" : ""}`
           }

@@ -38,16 +38,6 @@ function Login({ onLogin, onSwitchToRegister }) {
     }
   };
 
-  const fillQuickDemo = (role) => {
-    if (role === "student") {
-      setEmail("student@studymatch.ai");
-      setPassword("password123");
-    } else {
-      setEmail("teacher@studymatch.ai");
-      setPassword("password123");
-    }
-  };
-
   return (
     <div className="auth-card">
       <div className="auth-brand-head">
@@ -85,18 +75,6 @@ function Login({ onLogin, onSwitchToRegister }) {
       </form>
 
       {message && <div className="auth-error-msg">{message}</div>}
-
-      <div className="demo-credentials-box">
-        <span>⚡ Quick Demo Logins:</span>
-        <div className="demo-btns-row">
-          <button type="button" onClick={() => fillQuickDemo("student")}>
-            Alex Morgan (Student)
-          </button>
-          <button type="button" onClick={() => fillQuickDemo("teacher")}>
-            Dr. Jenkins (Teacher)
-          </button>
-        </div>
-      </div>
 
       <div className="auth-switch-footer">
         Don't have an account?{" "}

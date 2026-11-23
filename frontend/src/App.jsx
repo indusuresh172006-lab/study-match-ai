@@ -19,6 +19,7 @@ import PreviousPapers from "./pages/PreviousPapers";
 import StudentProfile from "./pages/StudentProfile";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminManagementPage from "./pages/AdminManagementPage";
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -250,9 +251,74 @@ function App() {
         />
 
         <Route
+          path="/admin/manage"
+          element={
+            user && user.role === "admin" ? (
+              <Navigate to="/admin/manage/teacher-requests" replace />
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/admin/manage/teacher-requests"
+          element={
+            user && user.role === "admin" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <AdminManagementPage view="teacher-requests" />
+              </Layout>
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/admin/manage/accounts"
+          element={
+            user && user.role === "admin" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <AdminManagementPage view="accounts" />
+              </Layout>
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/admin/manage/classes"
+          element={
+            user && user.role === "admin" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <AdminManagementPage view="classes" />
+              </Layout>
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/admin/manage/content"
+          element={
+            user && user.role === "admin" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <AdminManagementPage view="content" />
+              </Layout>
+            ) : (
+              <Navigate to={user ? "/dashboard" : "/login"} replace />
+            )
+          }
+        />
+
+        <Route
           path="/teacher/manage"
           element={
-            user && ["teacher", "admin"].includes(user.role) ? (
+            user?.role === "admin" ? (
+              <Navigate to="/admin/manage/content" replace />
+            ) : user?.role === "teacher" ? (
               <Layout user={user} onLogout={handleLogout}>
                 <TeacherManagement />
               </Layout>

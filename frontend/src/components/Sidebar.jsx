@@ -21,11 +21,10 @@ function Sidebar({ user, mobileOpen, onClose }) {
   const navItems = isAdmin
     ? [
         { to: "/admin", label: "Admin Dashboard", icon: "🛡️" },
-        { to: "/materials", label: "Study Materials", icon: "📚" },
-        { to: "/summaries", label: "Course Summaries", icon: "📖" },
-        { to: "/mock-tests", label: "Mock Tests", icon: "📝" },
-        { to: "/papers", label: "Previous Papers", icon: "📄" },
-        { to: "/teacher/manage", label: "Manage Content", icon: "🛠️" },
+        { to: "/admin/manage/teacher-requests", label: "Teacher Requests", icon: "👨‍🏫" },
+        { to: "/admin/manage/accounts", label: "Accounts", icon: "👥" },
+        { to: "/admin/manage/classes", label: "Classes", icon: "🏫" },
+        { to: "/admin/manage/content", label: "Content Management", icon: "🛠️" },
       ]
     : [...studentNavItems];
 
@@ -58,6 +57,7 @@ function Sidebar({ user, mobileOpen, onClose }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/admin"}
                 onClick={onClose}
                 className={({ isActive }) =>
                   `sidebar-link ${isActive ? "active" : ""}`

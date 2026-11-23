@@ -10,7 +10,7 @@ const EMPTY_CLASS = {
   teacher_id: "",
 };
 
-function AdminManagement() {
+function AdminManagement({ view }) {
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -121,14 +121,7 @@ function AdminManagement() {
       {error && <p className="auth-error-msg" role="alert">{error}</p>}
       {notice && <p className="scope-feedback" role="status">{notice}</p>}
 
-      <section className="kpi-grid" aria-label="Platform overview">
-        <div className="kpi-card info"><div className="kpi-icon">👥</div><div className="kpi-details"><span className="kpi-num">{overview?.total_users ?? 0}</span><span className="kpi-label">Total Accounts</span></div></div>
-        <div className="kpi-card success"><div className="kpi-icon">👨‍🏫</div><div className="kpi-details"><span className="kpi-num">{overview?.teachers ?? 0}</span><span className="kpi-label">Teachers</span></div></div>
-        <div className="kpi-card warning"><div className="kpi-icon">🎓</div><div className="kpi-details"><span className="kpi-num">{overview?.students ?? 0}</span><span className="kpi-label">Students</span></div></div>
-        <div className="kpi-card info"><div className="kpi-icon">🏫</div><div className="kpi-details"><span className="kpi-num">{overview?.active_classes ?? 0} / {overview?.total_classes ?? 0}</span><span className="kpi-label">Active Classes</span></div></div>
-      </section>
-
-      <section className="teacher-section-card">
+      {view === "teacher-requests" && <section className="teacher-section-card">
         <div className="card-head-row">
           <div>
             <h3>Teacher account requests</h3>
@@ -160,9 +153,9 @@ function AdminManagement() {
             </table>
           </div>
         )}
-      </section>
+      </section>}
 
-      <div className="teacher-split-grid admin-forms-grid">
+      {view === "accounts" && <>
         <section className="teacher-section-card">
           <div className="card-head-row"><div><h3>Create a teacher account</h3><p className="subtext">Only administrators can provision teacher accounts.</p></div></div>
           <form className="teacher-class-form" onSubmit={createTeacher}>
@@ -177,6 +170,18 @@ function AdminManagement() {
         </section>
 
         <section className="teacher-section-card">
+        <div className="card-head-row"><div><h3>Accounts</h3><p className="subtext">Showing {users.length} of {overview?.total_users ?? users.length} accounts.</p></div><button className="action-btn-secondary btn-sm" type="button" onClick={loadData}>Refresh</button></div>
+        <div className="class-topics-table-wrapper">
+          <table className="teacher-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Approval</th></tr></thead>
+            <tbody>{users.map((user) => <tr key={user.id}><td>{user.name}</td><td>{user.email}</td><td><span className="status-badge">{user.role.toUpperCase()}</span></td><td><span className="status-badge">{user.approval_status.toUpperCase()}</span></td></tr>)}</tbody>
+          </table>
+        </div>
+      </section>
+      </>}
+
+      {view === "classes" && <>
+        <section className="teacher-section-card">
           <div className="card-head-row"><div><h3>Create a class</h3><p className="subtext">Assign the class to an existing teacher.</p></div></div>
           <form className="teacher-class-form" onSubmit={createClass}>
             <label>Class name<input required minLength={2} maxLength={100} value={classForm.name} onChange={(event) => setClassForm({ ...classForm, name: event.target.value })} /></label>
@@ -188,19 +193,8 @@ function AdminManagement() {
             {teachers.length === 0 && <p className="subtext">Create a teacher account first.</p>}
           </form>
         </section>
-      </div>
 
-      <section className="teacher-section-card">
-        <div className="card-head-row"><div><h3>Accounts</h3><p className="subtext">Showing {users.length} of {overview?.total_users ?? users.length} accounts.</p></div><button className="action-btn-secondary btn-sm" type="button" onClick={loadData}>Refresh</button></div>
-        <div className="class-topics-table-wrapper">
-          <table className="teacher-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Approval</th></tr></thead>
-            <tbody>{users.map((user) => <tr key={user.id}><td>{user.name}</td><td>{user.email}</td><td><span className="status-badge">{user.role.toUpperCase()}</span></td><td><span className="status-badge">{user.approval_status.toUpperCase()}</span></td></tr>)}</tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="teacher-section-card">
+        <section className="teacher-section-card">
         <div className="card-head-row"><div><h3>Class administration</h3><p className="subtext">Reassign classes and deactivate or reactivate enrollment codes.</p></div></div>
         <div className="class-topics-table-wrapper">
           <table className="teacher-table">
@@ -234,6 +228,7 @@ function AdminManagement() {
           </table>
         </div>
       </section>
+      </>}
     </div>
   );
 }

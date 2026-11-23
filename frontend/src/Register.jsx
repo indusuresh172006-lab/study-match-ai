@@ -72,6 +72,14 @@ function Register({ onSwitchToLogin }) {
 
       <form onSubmit={handleRegister} className="auth-form">
         <div className="form-field">
+          <label htmlFor="account-role">Account type</label>
+          <select id="account-role" value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="student">Student</option>
+            <option value="teacher">Teacher (requires admin approval)</option>
+          </select>
+        </div>
+
+        <div className="form-field">
           <label>Full Name</label>
           <input
             type="text"
@@ -92,14 +100,6 @@ function Register({ onSwitchToLogin }) {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="account-role">Account type</label>
-          <select id="account-role" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="student">Student</option>
-            <option value="teacher">Teacher (requires admin approval)</option>
-          </select>
         </div>
 
         {role === "student" ? (
