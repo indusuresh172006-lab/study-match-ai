@@ -95,6 +95,12 @@ function StudentDashboard({ user }) {
         average_score: summary.subject_breakdown[subj].average_score,
       }))
     : [];
+  const hasCompleteMaterialScope = Boolean(
+    profile?.course?.trim() && profile?.college?.trim() && profile?.semester?.trim()
+  );
+  const materialScopeLabel = [profile?.course, profile?.college, profile?.semester]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="dashboard-page">
@@ -134,6 +140,12 @@ function StudentDashboard({ user }) {
             onClick={() => navigate("/guidance")}
           >
             🎓 Explore Higher Studies & Scholarships
+          </button>
+          <button
+            className="action-btn-secondary"
+            onClick={() => navigate("/materials")}
+          >
+            📚 Study Materials for My Course
           </button>
         </div>
       </section>
@@ -349,8 +361,8 @@ function StudentDashboard({ user }) {
             <div className="quick-action-item" onClick={() => navigate("/materials")}>
               <span className="qa-icon">📚</span>
               <div className="qa-text">
-                <strong>Study Materials Priority Feed</strong>
-                <span>Weak topic notes are automatically pinned to the top of your feed.</span>
+                <strong>Materials for My Enrolled Course</strong>
+                <span>Only resources matching your registered course, institution, and year/semester are shown; weak-topic notes are prioritized.</span>
               </div>
               <span className="qa-arrow">→</span>
             </div>
@@ -389,37 +401,52 @@ function StudentDashboard({ user }) {
       <section className="dashboard-materials-preview">
         <div className="section-head-row">
           <div>
-            <h3>Recommended Study Materials</h3>
-            <span className="card-subtext">Curated specifically from your weak and developing topics</span>
+            <h3>Materials Matched to Your Course</h3>
+            <span className="card-subtext">
+              {hasCompleteMaterialScope
+                ? `For ${materialScopeLabel}; weak-topic resources are prioritized.`
+                : "Complete your course, institution, and year/semester in your profile to see matching materials."}
+            </span>
           </div>
-          <button className="view-all-link" onClick={() => navigate("/materials")}>
-            View All Materials →
+          <button
+            className="view-all-link"
+            onClick={() => navigate(hasCompleteMaterialScope ? "/materials" : "/profile")}
+          >
+            {hasCompleteMaterialScope ? "Browse Course Materials →" : "Complete Profile →"}
           </button>
         </div>
 
-        <div className="materials-preview-grid">
-          {materials.map((mat) => (
-            <div key={mat.id} className="preview-mat-card">
-              <div className="card-top-badges">
-                <span className="subject-badge">{mat.subject}</span>
-                {mat.is_weak_topic && (
-                  <span className="weak-priority-badge">⚠️ Weak Topic</span>
-                )}
+        {materials.length ? (
+          <div className="materials-preview-grid">
+            {materials.map((mat) => (
+              <div key={mat.id} className="preview-mat-card">
+                <div className="card-top-badges">
+                  <span className="subject-badge">{mat.subject}</span>
+                  {mat.is_weak_topic && (
+                    <span className="weak-priority-badge">⚠️ Weak Topic</span>
+                  )}
+                </div>
+                <h4>{mat.title}</h4>
+                <p className="mat-summary-preview">{mat.summary}</p>
+                <div className="card-footer-action">
+                  <span className="topic-tag">📌 {mat.topic}</span>
+                  <button
+                    className="read-btn-sm"
+                    onClick={() => navigate(`/materials?search=${encodeURIComponent(mat.title)}`)}
+                  >
+                    Read →
+                  </button>
+                </div>
               </div>
-              <h4>{mat.title}</h4>
-              <p className="mat-summary-preview">{mat.summary}</p>
-              <div className="card-footer-action">
-                <span className="topic-tag">📌 {mat.topic}</span>
-                <button
-                  className="read-btn-sm"
-                  onClick={() => navigate(`/materials?search=${encodeURIComponent(mat.title)}`)}
-                >
-                  Read →
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="no-data-msg">
+            {hasCompleteMaterialScope
+              ? "No study materials have been published for your enrolled course yet."
+              : "Add your course, institution, and year/semester to your profile to find matching materials."}
+          </p>
+        )}
       </section>
 
       {/* Modal: AI Revision Notes (Module 10) */}
