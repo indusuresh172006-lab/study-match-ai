@@ -91,12 +91,11 @@ function BottomNav({ user }) {
       ]
     : isTeacher
     ? [
-        { to: "/dashboard", label: "Dashboard", icon: "dashboard" },
-        { to: "/materials", label: "Notes", icon: "notes" },
-        { to: "/videos", label: "Videos", icon: "videos" },
-        { to: "/mock-tests", label: "Tests", icon: "quiz" },
+        { to: "/teacher", label: "Dashboard", icon: "teacher" },
         { to: "/teacher/manage", label: "Manage", icon: "manage" },
-        { to: "/teacher", label: "Teacher", icon: "teacher" },
+        { to: "/materials", label: "Materials", icon: "notes" },
+        { to: "/groups", label: "Groups", icon: "groups" },
+        { to: "/mentor", label: "Mentor", icon: "mentor" },
       ]
     : [
         { to: "/dashboard", label: "Dashboard", icon: "dashboard" },

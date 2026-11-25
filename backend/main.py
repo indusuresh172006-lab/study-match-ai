@@ -32,6 +32,7 @@ from auth import (
     get_current_user, require_student, require_teacher
 )
 from ai_mentor import get_mentor_response
+from seed_mbbs_materials import ensure_mbbs_materials
 
 # Core & Module routers
 from routers import auth, academic, quiz, groups, revision, guidance, mock_tests_v2, chatbot, classes, admin
@@ -351,28 +352,56 @@ def _scope_materials_to_student(query, current_user: Student, db: Session):
     profile = db.query(StudentProfile).filter(
         StudentProfile.student_id == current_user.id
     ).first()
-    if not profile:
+    if not profile or not (profile.course or "").strip():
         return query.filter(StudyMaterial.id == -1)
 
     course = (profile.course or "").strip().lower()
     curriculum = (profile.college or "").strip().lower()
     academic_year = normalize_academic_year(profile.semester)
-    if not course or not curriculum or not academic_year:
-        return query.filter(StudyMaterial.id == -1)
 
-    scoped_query = query.filter(
-        func.lower(func.trim(StudyMaterial.course)) == course,
-        func.lower(func.trim(StudyMaterial.curriculum)) == curriculum,
+    # 1. Exact scope matching: Course + College/Curriculum + Academic Year
+    if curriculum and academic_year:
+        scoped_query = query.filter(
+            func.lower(func.trim(StudyMaterial.course)) == course,
+            func.lower(func.trim(StudyMaterial.curriculum)) == curriculum,
+        )
+        matching_ids = [
+            material.id for material in scoped_query.all()
+            if normalize_academic_year(material.academic_year) == academic_year
+        ]
+        if matching_ids:
+            return query.filter(StudyMaterial.id.in_(matching_ids))
+
+    # 2. Course-level match: Same enrolled course (e.g. MBBS, Diploma, etc.)
+    course_query = query.filter(
+        func.lower(func.trim(StudyMaterial.course)) == course
     )
-    matching_ids = [
-        material.id for material in scoped_query.all()
-        if normalize_academic_year(material.academic_year) == academic_year
-    ]
-    return (
-        query.filter(StudyMaterial.id.in_(matching_ids))
-        if matching_ids
-        else query.filter(StudyMaterial.id == -1)
-    )
+    if academic_year:
+        year_matching_ids = [
+            m.id for m in course_query.all()
+            if normalize_academic_year(m.academic_year) == academic_year
+        ]
+        if year_matching_ids:
+            return query.filter(StudyMaterial.id.in_(year_matching_ids))
+    course_all_ids = [m.id for m in course_query.all()]
+    if course_all_ids:
+        return query.filter(StudyMaterial.id.in_(course_all_ids))
+
+    # 3. Medical/Health Sciences stream fallback
+    if any(k in course for k in ("mbbs", "medicine", "health")):
+        health_matches = query.filter(
+            or_(
+                func.lower(StudyMaterial.subject).in_([
+                    "pathology", "pharmacology", "microbiology", "anatomy",
+                    "physiology", "general medicine", "forensic medicine", "biochemistry"
+                ]),
+                func.lower(StudyMaterial.course).ilike("%mbbs%")
+            )
+        ).all()
+        if health_matches:
+            return query.filter(StudyMaterial.id.in_([m.id for m in health_matches]))
+
+    return query.filter(StudyMaterial.id == -1)
 
 
 @app.get("/materials", response_model=StudyMaterialListResponse)
@@ -387,6 +416,7 @@ def list_study_materials(
     current_user: Student = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    ensure_mbbs_materials(db)
     query = _scope_materials_to_student(db.query(StudyMaterial), current_user, db)
 
     if subject and subject != "All":
@@ -460,6 +490,7 @@ def list_study_material_subjects(
     current_user: Student = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_mbbs_materials(db)
     query = _scope_materials_to_student(db.query(StudyMaterial), current_user, db)
     return [
         subject for (subject,) in query.with_entities(StudyMaterial.subject)

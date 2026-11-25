@@ -428,6 +428,35 @@ def test_ba_student_recommendations_only_include_eligible_postgraduate_courses(s
             db.close()
 
 
+def test_mbbs_student_recommendations_only_include_medical_postgraduate_courses(student):
+    db = SessionLocal()
+    try:
+        user = db.query(Student).filter(Student.email == student["email"]).first()
+        profile = db.query(StudentProfile).filter(StudentProfile.student_id == user.id).first()
+        profile.course = "MBBS"
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        f"{API}/guidance/courses/recommend", headers=_auth(student["token"])
+    )
+    assert response.status_code == 200, response.text
+    recommendations = response.json()
+    assert len(recommendations) > 0
+
+    # Ensure no undergraduate courses are recommended
+    for course in recommendations:
+        assert course["degree_level"].casefold().startswith("postgraduate"), f"Expected PG course but got {course['title']} ({course['degree_level']})"
+        assert "b.tech" not in course["title"].casefold()
+        assert course["title"].casefold() != "mbbs"
+
+    # Top recommendations should be MD, MS, DNB, or MPH
+    titles = [c["title"] for c in recommendations]
+    assert any("MD" in t for t in titles)
+    assert any("MS" in t for t in titles)
+
+
 def test_student_only_sees_study_materials_for_exact_course_scope(student, teacher):
     profile = client.put(
         f"{API}/auth/profile",

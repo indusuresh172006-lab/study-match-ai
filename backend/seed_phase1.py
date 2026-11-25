@@ -797,7 +797,6 @@ Verify visa requirements and fee structures on official university/embassy websi
     # Import here to avoid circular issues
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'routers'))
     try:
         from routers.chatbot import _embed_document
         for doc in docs:
@@ -937,6 +936,10 @@ for pathway in postgraduate_pathways:
         db.add(pathway)
         print(f"  ✔ Added postgraduate pathway: {pathway.title}")
 db.commit()
+
+from medical_guidance import ensure_medical_pg_courses
+ensure_medical_pg_courses(db)
+print("  ✔ Medical and Health Sciences postgraduate pathways verified/seeded.")
 
 
 db.close()

@@ -15,6 +15,7 @@ import datetime
 
 from database import get_db
 from auth import get_current_user, require_teacher
+from medical_guidance import ensure_medical_pg_courses
 from models import (
     Student, StudentProfile, SkillProfile, InterestProfile,
     RoadmapItem, EntranceExam, College, Course, Scholarship,
@@ -285,17 +286,28 @@ def _current_bachelor_stream(profile: Optional[StudentProfile]) -> Optional[str]
     if not profile:
         return None
 
-    course = re.sub(r"[^a-z0-9]+", " ", (profile.course or "").casefold()).strip()
+    qualification = " ".join(
+        value or ""
+        for value in (profile.course, profile.department, profile.stream)
+    ).casefold()
+    qualification = re.sub(r"[^a-z0-9]+", " ", qualification).strip()
+
     degree_patterns = (
-        (r"^(?:b a|ba|bachelor of arts)(?:\s|$)", "Humanities"),
-        (r"^(?:b com|bcom|bachelor of commerce)(?:\s|$)", "Commerce"),
-        (r"^(?:b sc|bsc|bachelor of science)(?:\s|$)", "Science"),
-        (r"^(?:b tech|b e|be|bachelor of engineering)(?:\s|$)", "Engineering"),
-        (r"^(?:bca|bachelor of computer applications)(?:\s|$)", "Computer Applications"),
-        (r"^(?:bba|bachelor of business administration)(?:\s|$)", "Management"),
+        (r"\b(?:b\s*a|ba|bachelor of arts)\b", "Humanities"),
+        (r"\b(?:b\s*com|bcom|bachelor of commerce)\b", "Commerce"),
+        (r"\b(?:b\s*sc|bsc|bachelor of science)\b", "Science"),
+        (r"\b(?:b\s*tech|b\s*e|be|bachelor of engineering|bachelor of technology)\b", "Engineering"),
+        (r"\b(?:bca|bachelor of computer applications)\b", "Computer Applications"),
+        (r"\b(?:bba|bachelor of business administration)\b", "Management"),
+        (
+            r"\b(?:mbbs|bds|bams|bhms|b\s*pharm|bpharm|bachelor of medicine|bachelor of surgery|bachelor of dental|bachelor of pharmacy|bachelor of ayurveda|b\s*sc\s*nursing|nursing|allied health)\b",
+            "Health Sciences",
+        ),
+        (r"\b(?:llb|bachelor of laws?)\b", "Law"),
+        (r"\b(?:b\s*des|bdes|bachelor of design)\b", "Design"),
     )
     return next(
-        (stream for pattern, stream in degree_patterns if re.search(pattern, course)),
+        (stream for pattern, stream in degree_patterns if re.search(pattern, qualification)),
         None,
     )
 
@@ -312,8 +324,15 @@ def _bachelor_eligibility_fit(course: Course, current_stream: str) -> float:
         "Engineering": ("engineering", "bachelor of engineering", "b tech", "b e"),
         "Computer Applications": ("computer applications", "computer science", "bca"),
         "Management": ("management", "business administration", "bba"),
+        "Health Sciences": (
+            "health sciences", "health science", "mbbs", "bds", "bams", "bhms",
+            "medicine", "medical", "neet pg", "ini cet", "neetpg", "inicet", "nbe", "nmc",
+            "doctor of medicine", "master of surgery", "pharmacy", "nursing"
+        ),
+        "Law": ("law", "llb", "legal"),
+        "Design": ("design", "b des", "bdes", "ceed"),
     }
-    return 1.0 if any(term in eligibility for term in stream_terms[current_stream]) else 0.0
+    return 1.0 if any(term in eligibility for term in stream_terms.get(current_stream, ())) else 0.0
 
 
 def _filter_courses_for_bachelor(
@@ -340,6 +359,9 @@ def recommend_courses(
       3. InterestProfile tags (from original questionnaire)
     Returns top-10 courses with match_score and match_reason.
     """
+    # Ensure health sciences & medical postgraduate courses exist in DB
+    ensure_medical_pg_courses(db)
+
     profile = db.query(StudentProfile).filter(
         StudentProfile.student_id == current_user.id
     ).first()
@@ -402,10 +424,14 @@ def recommend_courses(
             "Possible lateral-entry pathway; verify the current admission rules and branch eligibility."
             if diploma_branch
             else (
-                f"Postgraduate option after your current {profile.course.strip()} studies; "
-                "verify subject-specific admission eligibility."
-                if current_bachelor_stream and profile and profile.course
-                else "Explore all career options"
+                f"Primary postgraduate medical specialization after your {profile.course.strip()} degree (NEET-PG / INI-CET)."
+                if current_bachelor_stream == "Health Sciences" and profile and profile.course
+                else (
+                    f"Postgraduate option after your current {profile.course.strip()} studies; "
+                    "verify subject-specific admission eligibility."
+                    if current_bachelor_stream and profile and profile.course
+                    else "Explore all career options"
+                )
             )
         )
         return [_course_dict(c, 50.0, reason) for c in courses]
@@ -417,11 +443,13 @@ def recommend_courses(
         raw = combined.get(course.stream, 0)
         if current_bachelor_stream:
             degree_fit = _bachelor_eligibility_fit(course, current_bachelor_stream)
-            raw += max(max_score, 1) * 0.35 * degree_fit
-            score_ceiling = max(max_score, 1) * 1.35
+            is_direct_stream = (course.stream.casefold() == current_bachelor_stream.casefold())
+            stream_boost = 1.0 if is_direct_stream else 0.5
+            raw += max(max_score, 1.0) * stream_boost * degree_fit
+            score_ceiling = max(max_score, 1.0) * (1.0 + stream_boost)
         else:
             score_ceiling = max(max_score, 0.01)
-        pct = min(100.0, (raw / score_ceiling) * 100.0)
+        pct = min(100.0, round((raw / score_ceiling) * 100.0, 1))
 
         # Build reason string
         strong_subjects = [
@@ -433,10 +461,13 @@ def recommend_courses(
         ]
         if current_bachelor_stream:
             current_course = profile.course.strip() if profile and profile.course else "bachelor's"
-            reason = (
-                f"Postgraduate option after your current {current_course} studies; "
-                "verify subject-specific admission eligibility."
-            )
+            is_direct_stream = (course.stream.casefold() == current_bachelor_stream.casefold())
+            if current_bachelor_stream == "Health Sciences" and course.stream == "Health Sciences":
+                reason = f"Primary postgraduate medical specialization after your {current_course} degree (NEET-PG / INI-CET)."
+            elif is_direct_stream:
+                reason = f"Direct postgraduate advancement in {course.stream} following your {current_course} studies."
+            else:
+                reason = f"Eligible postgraduate option after your current {current_course} studies; verify admission eligibility."
         elif strong_subjects:
             reason = f"Strong in {', '.join(strong_subjects[:2])}"
         elif pct > 60:

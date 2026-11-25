@@ -1,11 +1,30 @@
+# Environments & Secrets
 .env
 *.env
 *.env.*
+venv/
+env/
+.venv/
+ENV/
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-backend/uploads/
-dist/
+*.sqlite3
+
+# Node & Frontend
 node_modules/
+dist/
+.vite/
+
+# Uploads & Logs
+backend/uploads/
+uploads/
+*.log
+
+# IDE & OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db

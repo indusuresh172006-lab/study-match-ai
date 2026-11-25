@@ -25,6 +25,7 @@ from models import (
     Student, StudentProfile, SkillProfile, QuestionPaper, Test, TestQuestion,
     TestAttempt, AttemptAnswer, TestResult
 )
+from paper_generator import generate_paper_pdfs, get_ai_paper_questions
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -81,12 +82,19 @@ def _paper_scope_values(course, curriculum, academic_year):
     return values
 
 
+class GenerateAIPaperRequest(BaseModel):
+    subject: str
+    exam_name: Optional[str] = "AI Adaptive Examination"
+    year: Optional[int] = None
+
+
 @router.get("/papers")
 def list_papers(
     exam: Optional[str] = None,
     subject: Optional[str] = None,
     year: Optional[int] = None,
     topic: Optional[str] = None,
+    source: Optional[str] = None,
     skip: int = 0,
     limit: int = 30,
     db: Session = Depends(get_db),
@@ -97,10 +105,13 @@ def list_papers(
         q = q.filter(QuestionPaper.approval_status == "approved")
     if exam:
         q = q.filter(QuestionPaper.exam_name.ilike(f"%{exam}%"))
-    if subject:
+    if subject and subject != "All":
         q = q.filter(QuestionPaper.subject.ilike(f"%{subject}%"))
-    if year:
-        q = q.filter(QuestionPaper.year == year)
+    if year and year != "All":
+        try:
+            q = q.filter(QuestionPaper.year == int(year))
+        except (ValueError, TypeError):
+            pass
     if topic:
         # topic_tags is a JSON list — do a text search
         q = q.filter(QuestionPaper.topic_tags.cast(db.bind.dialect.name == "postgresql" and
@@ -114,6 +125,11 @@ def list_papers(
             paper for paper in candidates
             if _paper_matches_student_scope(paper, scope)
         ]
+        if source and source != "All":
+            papers = [
+                p for p in papers
+                if (getattr(p, "source", None) or ("ai" if "ai" in (p.title + " " + p.exam_name).lower() else "teacher")) == source.lower()
+            ]
         total = len(papers)
         papers = papers[skip:skip + limit]
         return {
@@ -123,8 +139,14 @@ def list_papers(
             "items": [_paper_dict(paper) for paper in papers],
         }
 
-    total = q.count()
-    papers = q.order_by(QuestionPaper.year.desc()).offset(skip).limit(limit).all()
+    candidates = q.order_by(QuestionPaper.year.desc()).all()
+    if source and source != "All":
+        candidates = [
+            p for p in candidates
+            if (getattr(p, "source", None) or ("ai" if "ai" in (p.title + " " + p.exam_name).lower() else "teacher")) == source.lower()
+        ]
+    total = len(candidates)
+    papers = candidates[skip:skip + limit]
     return {
         "total": total,
         "skip": skip,
@@ -134,6 +156,14 @@ def list_papers(
 
 
 def _paper_dict(p: QuestionPaper):
+    source_val = getattr(p, "source", None)
+    if not source_val:
+        source_val = "ai" if "ai" in (p.title + " " + p.exam_name).lower() else "teacher"
+
+    uploader_label = "AI Academic Engine" if source_val == "ai" else (
+        p.uploader.name if getattr(p, "uploader", None) else "Faculty / Department"
+    )
+
     return {
         "id": p.id,
         "exam_name": p.exam_name,
@@ -147,6 +177,10 @@ def _paper_dict(p: QuestionPaper):
         "file_path": p.file_path,
         "answer_key_file": p.answer_key_file,
         "approval_status": p.approval_status,
+        "source": source_val,
+        "uploader_name": uploader_label,
+        "has_solutions": bool(getattr(p, "solutions", None) or p.answer_key_file),
+        "solutions": getattr(p, "solutions", None),
     }
 
 
@@ -166,6 +200,110 @@ def get_paper(
         )
     ):
         raise HTTPException(status_code=404, detail="Paper not found")
+    return _paper_dict(paper)
+
+
+@router.get("/papers/{paper_id}/solutions")
+def get_paper_solutions(
+    paper_id: int,
+    db: Session = Depends(get_db),
+    current_user: Student = Depends(get_current_user)
+):
+    paper = db.query(QuestionPaper).filter(QuestionPaper.id == paper_id).first()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    if current_user.role not in {"teacher", "admin"} and (
+        paper.approval_status != "approved"
+        or not _paper_matches_student_scope(
+            paper, _student_test_scope(db, current_user)
+        )
+    ):
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    solutions = getattr(paper, "solutions", None) or []
+    return {
+        "id": paper.id,
+        "title": paper.title,
+        "subject": paper.subject,
+        "year": paper.year,
+        "exam_name": paper.exam_name,
+        "course": paper.course,
+        "academic_year": paper.academic_year,
+        "curriculum": paper.curriculum,
+        "source": getattr(paper, "source", "teacher"),
+        "uploader_name": paper.uploader.name if getattr(paper, "uploader", None) else ("AI Academic Engine" if getattr(paper, "source", "") == "ai" else "Faculty / Department"),
+        "solutions": solutions,
+    }
+
+
+@router.post("/papers/generate-ai", status_code=status.HTTP_201_CREATED)
+def generate_ai_question_paper(
+    payload: GenerateAIPaperRequest,
+    db: Session = Depends(get_db),
+    current_user: Student = Depends(get_current_user)
+):
+    # Determine student or teacher academic scope
+    scope = _student_test_scope(db, current_user)
+    course = None
+    curriculum = None
+    academic_year = None
+    if scope:
+        course, curriculum, academic_year = scope
+    elif current_user.profile:
+        course = current_user.profile.course
+        curriculum = current_user.profile.college
+        academic_year = current_user.profile.semester
+
+    course = course or "General"
+    curriculum = curriculum or "Autonomous University"
+    academic_year = academic_year or "Year 1"
+
+    exam_year = payload.year or datetime.datetime.utcnow().year
+    subject_name = payload.subject.strip()
+    exam_title = f"AI Adaptive Solved Paper {exam_year}: {subject_name} Comprehensive"
+
+    # Generate questions & solutions
+    questions = get_ai_paper_questions(subject_name)
+    tags = ["AI Generated", subject_name, "Comprehensive Practice", "Detailed Solutions"]
+
+    # Generate PDFs
+    file_code = f"ai_gen_{uuid.uuid4().hex[:10]}"
+    meta_info = {
+        "subject": subject_name,
+        "course": course.upper(),
+        "academic_year": academic_year,
+        "curriculum": curriculum,
+        "year": exam_year,
+        "total_marks": 50,
+        "time_limit": "2 Hours"
+    }
+
+    try:
+        rel_qp, rel_key = generate_paper_pdfs(file_code, exam_title, payload.exam_name, meta_info, questions)
+    except Exception as exc:
+        logger.exception("Failed to generate PDFs for AI question paper.")
+        rel_qp, rel_key = "", ""
+
+    paper = QuestionPaper(
+        exam_name=payload.exam_name,
+        subject=subject_name,
+        course=course.upper(),
+        curriculum=curriculum,
+        academic_year=academic_year,
+        year=exam_year,
+        title=exam_title,
+        topic_tags=tags,
+        file_path=rel_qp,
+        answer_key_file=rel_key,
+        approval_status="approved",
+        source="ai",
+        solutions=questions,
+        uploaded_by=None
+    )
+    db.add(paper)
+    db.commit()
+    db.refresh(paper)
+
     return _paper_dict(paper)
 
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import TeacherManagement from "./pages/TeacherManagement";
+import Home from "./pages/Home";
 import Login from "./Login";
 import Register from "./Register";
 import Layout from "./components/Layout";
@@ -18,8 +19,21 @@ import CourseSummaries from "./pages/CourseSummaries";
 import PreviousPapers from "./pages/PreviousPapers";
 import StudentProfile from "./pages/StudentProfile";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherClassesPage from "./pages/TeacherClassesPage";
+import TeacherCurriculumPage from "./pages/TeacherCurriculumPage";
+import TeacherQuizzesPage from "./pages/TeacherQuizzesPage";
+import TeacherGroupsPage from "./pages/TeacherGroupsPage";
+import TeacherCounsellingPage from "./pages/TeacherCounsellingPage";
+import TeacherRevisionNotesPage from "./pages/TeacherRevisionNotesPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminManagementPage from "./pages/AdminManagementPage";
+
+function getDefaultRouteForUser(user) {
+  if (!user) return "/login";
+  if (user.role === "admin") return "/admin";
+  if (user.role === "teacher") return "/teacher";
+  return "/dashboard";
+}
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -46,6 +60,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Homepage Route */}
+        <Route
+          path="/"
+          element={<Home user={user} onLogout={handleLogout} />}
+        />
+
         {/* Public Auth Routes */}
         <Route
           path="/login"
@@ -58,7 +78,7 @@ function App() {
                 />
               </div>
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -71,7 +91,7 @@ function App() {
                 <Register onSwitchToLogin={() => (window.location.href = "/login")} />
               </div>
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -83,6 +103,8 @@ function App() {
             user ? (
               user.role === "admin" ? (
                 <Navigate to="/admin" replace />
+              ) : user.role === "teacher" ? (
+                <Navigate to="/teacher" replace />
               ) : (
                 <Layout user={user} onLogout={handleLogout}>
                   <StudentDashboard user={user} />
@@ -102,7 +124,7 @@ function App() {
                 <StudentProfile user={user} />
               </Layout>
             ) : (
-              <Navigate to={user ? "/dashboard" : "/login"} replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -110,12 +132,14 @@ function App() {
         <Route
           path="/quiz"
           element={
-            user ? (
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === "student" ? (
               <Layout user={user} onLogout={handleLogout}>
                 <TopicQuiz user={user} />
               </Layout>
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -123,12 +147,14 @@ function App() {
         <Route
           path="/groups"
           element={
-            user ? (
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === "teacher" ? (
+              <Navigate to="/teacher/groups" replace />
+            ) : (
               <Layout user={user} onLogout={handleLogout}>
                 <StudyGroups user={user} />
               </Layout>
-            ) : (
-              <Navigate to="/login" replace />
             )
           }
         />
@@ -149,12 +175,14 @@ function App() {
         <Route
           path="/videos"
           element={
-            user ? (
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === "student" ? (
               <Layout user={user} onLogout={handleLogout}>
                 <CourseVideos />
               </Layout>
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -162,12 +190,14 @@ function App() {
         <Route
           path="/guidance"
           element={
-            user ? (
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === "student" ? (
               <Layout user={user} onLogout={handleLogout}>
                 <CourseGuidance user={user} />
               </Layout>
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -188,12 +218,14 @@ function App() {
         <Route
           path="/mock-tests"
           element={
-            user ? (
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === "student" ? (
               <Layout user={user} onLogout={handleLogout}>
                 <MockTests user={user} />
               </Layout>
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -232,7 +264,7 @@ function App() {
                 <TeacherDashboard user={user} />
               </Layout>
             ) : (
-              <Navigate to={user?.role === "admin" ? "/admin" : user ? "/dashboard" : "/login"} replace />
+              <Navigate to={getDefaultRouteForUser(user)} replace />
             )
           }
         />
@@ -314,14 +346,90 @@ function App() {
         />
 
         <Route
+          path="/teacher/classes"
+          element={
+            user && user.role === "teacher" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <TeacherClassesPage user={user} />
+              </Layout>
+            ) : (
+              <Navigate to={getDefaultRouteForUser(user)} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/teacher/curriculum"
+          element={
+            user && user.role === "teacher" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <TeacherCurriculumPage />
+              </Layout>
+            ) : (
+              <Navigate to={getDefaultRouteForUser(user)} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/teacher/quizzes"
+          element={
+            user && user.role === "teacher" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <TeacherQuizzesPage />
+              </Layout>
+            ) : (
+              <Navigate to={getDefaultRouteForUser(user)} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/teacher/groups"
+          element={
+            user && user.role === "teacher" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <TeacherGroupsPage />
+              </Layout>
+            ) : (
+              <Navigate to={getDefaultRouteForUser(user)} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/teacher/counselling"
+          element={
+            user && user.role === "teacher" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <TeacherCounsellingPage />
+              </Layout>
+            ) : (
+              <Navigate to={getDefaultRouteForUser(user)} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/teacher/revision-notes"
+          element={
+            user && user.role === "teacher" ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <TeacherRevisionNotesPage />
+              </Layout>
+            ) : (
+              <Navigate to={getDefaultRouteForUser(user)} replace />
+            )
+          }
+        />
+
+        <Route
           path="/teacher/manage"
           element={
             user?.role === "admin" ? (
               <Navigate to="/admin/manage/content" replace />
             ) : user?.role === "teacher" ? (
-              <Layout user={user} onLogout={handleLogout}>
-                <TeacherManagement />
-              </Layout>
+              <Navigate to="/teacher/curriculum" replace />
             ) : (
               <Navigate to={user ? "/dashboard" : "/login"} replace />
             )
@@ -329,7 +437,7 @@ function App() {
         />
         <Route
           path="*"
-          element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
+          element={<Navigate to={getDefaultRouteForUser(user)} replace />}
         />
       </Routes>
     </BrowserRouter>

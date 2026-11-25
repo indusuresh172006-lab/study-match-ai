@@ -30,12 +30,22 @@ const EMPTY_QUESTION = {
   difficulty: "medium",
 };
 
-function TeacherManagement() {
-  const [tab, setTab] = useState("subjects");
+function TeacherManagement({
+  defaultTab = "subjects",
+  embedded = false,
+  hideHeader = false,
+  hideTabs = false,
+  allowedTabs = ["subjects", "topics", "questions"],
+}) {
+  const [tab, setTab] = useState(defaultTab);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null); // { type: "success" | "error", text }
+
+  useEffect(() => {
+    if (defaultTab) setTab(defaultTab);
+  }, [defaultTab]);
 
   const [subjectId, setSubjectId] = useState(null);
   const [topicId, setTopicId] = useState(null);
@@ -280,16 +290,18 @@ function TeacherManagement() {
   );
 
   return (
-    <div className="teacher-dashboard-page">
-      <div className="page-header-row">
-        <div>
-          <h2>🛠️ Content Management</h2>
-          <p className="page-subtitle">
-            Manage teacher-curated syllabi and quiz questions. Match the course,
-            board/institution, and year/semester to students' registration details.
-          </p>
+    <div className={embedded ? "teacher-embedded-mgmt" : "teacher-dashboard-page"}>
+      {!embedded && !hideHeader && (
+        <div className="page-header-row">
+          <div>
+            <h2>🛠️ Content Management</h2>
+            <p className="page-subtitle">
+              Manage teacher-curated syllabi and quiz questions. Match the course,
+              board/institution, and year/semester to students' registration details.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {notice && (
         <div className={`auth-msg-banner ${notice.type === "success" ? "success" : "error"}`}>
@@ -297,17 +309,25 @@ function TeacherManagement() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "8px", margin: "16px 0" }}>
-        {[
-          ["subjects", "Subjects"],
-          ["topics", "Topics"],
-          ["questions", "Quiz Questions"],
-        ].map(([key, label]) => (
-          <button key={key} className={`tab-btn ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>
-            {label}
-          </button>
-        ))}
-      </div>
+      {!hideTabs && allowedTabs.length > 1 && (
+        <div style={{ display: "flex", gap: "8px", margin: "16px 0" }}>
+          {[
+            ["subjects", "Subjects"],
+            ["topics", "Topics (Syllabus)"],
+            ["questions", "Quiz Questions"],
+          ]
+            .filter(([key]) => allowedTabs.includes(key))
+            .map(([key, label]) => (
+              <button
+                key={key}
+                className={`tab-btn ${tab === key ? "active" : ""}`}
+                onClick={() => setTab(key)}
+              >
+                {label}
+              </button>
+            ))}
+        </div>
+      )}
 
       {/* ---------------- SUBJECTS ---------------- */}
       {tab === "subjects" && (

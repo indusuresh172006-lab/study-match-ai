@@ -16,6 +16,7 @@ function PreviousPapers({ user }) {
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [selectedExam, setSelectedExam] = useState("All");
   const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedSource, setSelectedSource] = useState("All"); // 'All' | 'teacher' | 'ai'
   const [topicSearch, setTopicSearch] = useState("");
 
   // Papers Data
@@ -26,6 +27,17 @@ function PreviousPapers({ user }) {
   // Active Paper for Study or Timed Exam
   const [activePaper, setActivePaper] = useState(null);
   const [loadingPaper, setLoadingPaper] = useState(false);
+
+  // Solved Solutions Viewer Modal
+  const [solutionsModalPaper, setSolutionsModalPaper] = useState(null);
+  const [solutionsData, setSolutionsData] = useState([]);
+  const [loadingSolutions, setLoadingSolutions] = useState(false);
+
+  // AI Paper Generation Modal
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiSubject, setAiSubject] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   // Timed exam attempt state
   const [examAnswers, setExamAnswers] = useState({});
@@ -60,6 +72,7 @@ function PreviousPapers({ user }) {
     (selectedSubject === "All" || paper.subject === selectedSubject)
     && (selectedExam === "All" || paper.exam_name === selectedExam)
     && (selectedYear === "All" || String(paper.year) === selectedYear)
+    && (selectedSource === "All" || (paper.source || "teacher").toLowerCase() === selectedSource.toLowerCase())
     && (!topicSearch.trim() || (paper.topic_tags || []).some((tag) =>
       tag.toLowerCase().includes(topicSearch.trim().toLowerCase())
     ))
@@ -275,6 +288,51 @@ function PreviousPapers({ user }) {
     }
   };
 
+  // Open Solved Solutions Viewer
+  const handleOpenSolutions = async (paper) => {
+    setSolutionsModalPaper(paper);
+    if (paper.solutions && Array.isArray(paper.solutions) && paper.solutions.length > 0) {
+      setSolutionsData(paper.solutions);
+      return;
+    }
+    setLoadingSolutions(true);
+    try {
+      const res = await api.get(`/api/v1/papers/${paper.id}/solutions`);
+      setSolutionsData(res.data.solutions || []);
+    } catch (err) {
+      console.error("Failed to load paper solutions:", err);
+      setSolutionsData([]);
+    } finally {
+      setLoadingSolutions(false);
+    }
+  };
+
+  // Generate AI Question Paper
+  const handleGenerateAIPaper = async (e) => {
+    e.preventDefault();
+    if (!aiSubject) {
+      setAiError("Please select a subject for the AI paper.");
+      return;
+    }
+    setAiGenerating(true);
+    setAiError("");
+    try {
+      await api.post("/api/v1/papers/generate-ai", {
+        subject: aiSubject,
+        exam_name: "AI Adaptive Examination"
+      });
+      setShowAiModal(false);
+      setAiSubject("");
+      await fetchPapers();
+      alert("✨ AI Solved Question Paper successfully generated and added to your library!");
+    } catch (err) {
+      console.error("AI Paper Generation error:", err);
+      setAiError(err.response?.data?.detail || "Failed to generate AI Question Paper.");
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   return (
     <div className="previous-papers-page">
       {/* ================= VIEW 1: PAPERS LIST ================= */}
@@ -284,23 +342,52 @@ function PreviousPapers({ user }) {
             <div>
               <h2>📄 Solved Previous-Year Question Papers</h2>
               <p className="page-subtitle">
-                {isTeacher
-                  ? "Upload and approve official papers, then share them with the matching course and semester."
-                  : "Approved question papers and answer keys for your current course and semester."}
+                Official teacher-uploaded papers and AI-generated practice papers with verified answer keys & solutions for your course.
               </p>
             </div>
-            {isTeacher && (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
               <button
                 className="action-btn-primary"
-                onClick={() => setShowUploadModal(true)}
+                style={{ background: "#4f46e5", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                onClick={() => {
+                  setAiSubject(paperSubjects[0] || "Marketing Management");
+                  setShowAiModal(true);
+                }}
               >
-                + Upload Question Paper
+                <span>🤖</span> Generate AI Question Paper
               </button>
-            )}
+              {isTeacher && (
+                <button
+                  className="action-btn-primary"
+                  onClick={() => setShowUploadModal(true)}
+                >
+                  + Upload Question Paper
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Filters Bar */}
           <div className="papers-filters-bar">
+            {/* Paper Source Filter Tabs: All | Teacher Uploaded | AI Generated */}
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginBottom: "4px" }}>
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#475569" }}>Source:</span>
+              {[
+                { id: "All", label: "All Papers" },
+                { id: "teacher", label: "👨‍🏫 Teacher Uploaded (Official)" },
+                { id: "ai", label: "🤖 AI Generated (Adaptive QP)" }
+              ].map((src) => (
+                <button
+                  key={src.id}
+                  className={`filter-pill ${selectedSource === src.id ? "active" : ""}`}
+                  style={selectedSource === src.id && src.id === "ai" ? { background: "#4f46e5", color: "white" } : {}}
+                  onClick={() => setSelectedSource(src.id)}
+                >
+                  {src.label}
+                </button>
+              ))}
+            </div>
+
             {/* Subject Tabs */}
             <div className="stream-filter-pills">
               {["All", ...paperSubjects].map((subj) => (
@@ -361,14 +448,15 @@ function PreviousPapers({ user }) {
               title={papers.length === 0 ? "No course papers available yet" : "No papers match these filters"}
               message={papers.length === 0
                 ? (isTeacher
-                  ? "Upload an official paper and answer key, then set the matching course, college, and semester."
-                  : "A teacher must upload and approve a question paper for your course and semester. You can then download the paper and answer key.")
+                  ? "Upload an official paper and answer key, or generate an AI question paper for your course."
+                  : "A teacher must upload and approve a question paper, or you can generate an AI practice paper above.")
                 : "Try clearing the filters or topic search."}
               actionText="Reset Filters"
               onAction={() => {
                 setSelectedSubject("All");
                 setSelectedExam("All");
                 setSelectedYear("All");
+                setSelectedSource("All");
                 setTopicSearch("");
               }}
             />
@@ -383,9 +471,22 @@ function PreviousPapers({ user }) {
                     {paper.academic_year && (
                       <span className="degree-tag">{paper.academic_year}</span>
                     )}
+                    {paper.source === "ai" ? (
+                      <span className="status-badge" style={{ background: "#ede9fe", color: "#6d28d9", fontWeight: 700, marginLeft: "auto" }}>
+                        🤖 AI Generated
+                      </span>
+                    ) : (
+                      <span className="status-badge" style={{ background: "#ecfdf5", color: "#047857", fontWeight: 700, marginLeft: "auto" }}>
+                        👨‍🏫 Teacher Uploaded
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="course-card-title">{paper.title}</h3>
+
+                  <div style={{ fontSize: "12px", color: "#64748b", margin: "4px 0" }}>
+                    👤 <strong>Source:</strong> {paper.uploader_name || (paper.source === "ai" ? "AI Academic Engine" : "Faculty Department")}
+                  </div>
 
                   {paper.topic_tags && (
                     <div className="card-exams-tags" style={{ marginTop: "8px" }}>
@@ -398,11 +499,11 @@ function PreviousPapers({ user }) {
                   )}
 
                   <div className="card-key-details" style={{ marginTop: "12px" }}>
-                    <div>📄 <strong>Format:</strong> Question Paper PDF</div>
-                    <div>🔑 <strong>Answer Key:</strong> {paper.answer_key_file ? "Available" : "Not uploaded"}</div>
+                    <div>📄 <strong>Question Paper:</strong> PDF Document</div>
+                    <div>🔑 <strong>Answer Key & Solutions:</strong> {paper.has_solutions ? "✅ Complete Solved Solutions" : (paper.answer_key_file ? "Available" : "Not uploaded")}</div>
                   </div>
 
-                  <div className="card-bottom-actions">
+                  <div className="card-bottom-actions" style={{ flexWrap: "wrap", gap: "8px", marginTop: "14px" }}>
                     <button
                       className="action-btn-secondary btn-sm"
                       onClick={() => handleOpenPreview(paper)}
@@ -423,6 +524,13 @@ function PreviousPapers({ user }) {
                         🔑 Answer Key
                       </button>
                     )}
+                    <button
+                      className="action-btn-primary btn-sm"
+                      style={{ background: "#059669" }}
+                      onClick={() => handleOpenSolutions(paper)}
+                    >
+                      💡 View Solved Answers
+                    </button>
                   </div>
 
                   {isTeacher && paper.approval_status === "pending" && (
@@ -862,6 +970,256 @@ function PreviousPapers({ user }) {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: SOLVED ANSWERS & STEP-BY-STEP SOLUTIONS ================= */}
+      {solutionsModalPaper && (
+        <div className="modal-backdrop">
+          <div className="modal-dialog modal-lg" style={{ maxWidth: "860px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                  💡 Solved Questions & Answer Key
+                </h3>
+                <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#64748b" }}>
+                  {solutionsModalPaper.title}
+                </p>
+              </div>
+              <button className="modal-close" onClick={() => setSolutionsModalPaper(null)}>
+                &times;
+              </button>
+            </div>
+
+            <div style={{ padding: "12px 24px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <span className="exam-code-badge">{solutionsModalPaper.exam_name}</span>
+              <span className="stream-pill">{solutionsModalPaper.subject}</span>
+              <span className="degree-tag">Year {solutionsModalPaper.year}</span>
+              {solutionsModalPaper.source === "ai" ? (
+                <span className="status-badge" style={{ background: "#ede9fe", color: "#6d28d9", fontWeight: 700 }}>
+                  🤖 AI Generated Practice Paper
+                </span>
+              ) : (
+                <span className="status-badge" style={{ background: "#ecfdf5", color: "#047857", fontWeight: 700 }}>
+                  👨‍🏫 Teacher Uploaded & Approved
+                </span>
+              )}
+            </div>
+
+            <div className="modal-body" style={{ overflowY: "auto", padding: "20px 24px" }}>
+              {loadingSolutions ? (
+                <LoadingSpinner message="Loading solved questions and answer key..." />
+              ) : solutionsData && solutionsData.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  {solutionsData.map((q, qIdx) => (
+                    <div
+                      key={qIdx}
+                      style={{
+                        background: "white",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "10px",
+                        padding: "18px",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <span style={{ fontWeight: "700", color: "#1e293b", fontSize: "14px" }}>
+                          Question {q.question_number || (qIdx + 1)}
+                        </span>
+                        {q.topic && (
+                          <span className="topic-badge" style={{ fontSize: "11px" }}>
+                            🏷️ {q.topic}
+                          </span>
+                        )}
+                      </div>
+
+                      <p style={{ fontSize: "15px", fontWeight: "600", color: "#0f172a", marginBottom: "14px", lineHeight: "1.4" }}>
+                        {q.question_text}
+                      </p>
+
+                      {q.options && Array.isArray(q.options) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+                          {q.options.map((opt, optIdx) => {
+                            const isCorrect = optIdx === q.correct_option;
+                            return (
+                              <div
+                                key={optIdx}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "10px",
+                                  padding: "9px 14px",
+                                  borderRadius: "8px",
+                                  background: isCorrect ? "#ecfdf5" : "#f8fafc",
+                                  border: isCorrect ? "2px solid #10b981" : "1px solid #e2e8f0",
+                                  color: isCorrect ? "#065f46" : "#334155",
+                                  fontWeight: isCorrect ? "600" : "normal"
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: "24px",
+                                    height: "24px",
+                                    borderRadius: "50%",
+                                    background: isCorrect ? "#10b981" : "#e2e8f0",
+                                    color: isCorrect ? "white" : "#475569",
+                                    fontSize: "12px",
+                                    fontWeight: "bold"
+                                  }}
+                                >
+                                  {String.fromCharCode(65 + optIdx)}
+                                </span>
+                                <span style={{ flex: 1, fontSize: "14px" }}>{opt}</span>
+                                {isCorrect && (
+                                  <span style={{ fontSize: "12px", color: "#059669", fontWeight: "bold" }}>
+                                    ✓ Correct Answer
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {q.step_by_step_solution && (
+                        <div
+                          style={{
+                            background: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
+                            borderRadius: "8px",
+                            padding: "12px 16px",
+                            marginTop: "10px"
+                          }}
+                        >
+                          <strong style={{ color: "#166534", fontSize: "13px", display: "flex", alignItems: "center", gap: "4px" }}>
+                            💡 Step-by-Step Conceptual Solution:
+                          </strong>
+                          <p style={{ margin: "6px 0 0 0", color: "#1e293b", fontSize: "13.5px", lineHeight: "1.5" }}>
+                            {q.step_by_step_solution}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                  <p style={{ fontSize: "16px", color: "#64748b" }}>
+                    The complete official answer key is available as a downloadable PDF document.
+                  </p>
+                  <button
+                    className="action-btn-primary"
+                    style={{ marginTop: "12px" }}
+                    onClick={() => handleDownloadPaper(solutionsModalPaper, "answer_key")}
+                  >
+                    🔑 Download Official Answer Key PDF
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ borderTop: "1px solid #e2e8f0", padding: "14px 24px", display: "flex", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  className="action-btn-secondary btn-sm"
+                  onClick={() => handleDownloadPaper(solutionsModalPaper)}
+                >
+                  ⬇️ Download QP PDF
+                </button>
+                {solutionsModalPaper.answer_key_file && (
+                  <button
+                    className="action-btn-secondary btn-sm"
+                    onClick={() => handleDownloadPaper(solutionsModalPaper, "answer_key")}
+                  >
+                    🔑 Download Answer Key PDF
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="action-btn-primary btn-sm"
+                onClick={() => setSolutionsModalPaper(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: GENERATE AI QUESTION PAPER ================= */}
+      {showAiModal && (
+        <div className="modal-backdrop">
+          <div className="modal-dialog modal-md">
+            <div className="modal-header">
+              <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                🤖 Generate AI Question Paper with Solutions
+              </h3>
+              <button className="modal-close" onClick={() => setShowAiModal(false)}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleGenerateAIPaper} className="modal-body">
+              <p style={{ fontSize: "13.5px", color: "#475569", marginBottom: "16px" }}>
+                FLINT AI will generate a tailored examination paper for your course with syllabus questions, official answer keys, step-by-step solutions, and downloadable PDF documents.
+              </p>
+
+              <div className="form-group" style={{ marginBottom: "14px" }}>
+                <label style={{ fontWeight: 600, fontSize: "13px" }}>Select Course Subject:</label>
+                <select
+                  className="search-input"
+                  style={{ width: "100%", marginTop: "6px", padding: "8px 12px" }}
+                  value={aiSubject}
+                  onChange={(e) => setAiSubject(e.target.value)}
+                  required
+                >
+                  <option value="">-- Choose Subject --</option>
+                  <option value="Marketing Management">Marketing Management</option>
+                  <option value="Financial Management">Financial Management</option>
+                  <option value="Human Resource Management & OB">Human Resource Management & OB</option>
+                  {paperSubjects
+                    .filter((s) => !["Marketing Management", "Financial Management", "Human Resource Management & OB"].includes(s))
+                    .map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "14px" }}>
+                <label style={{ fontWeight: 600, fontSize: "13px" }}>Examination Pattern:</label>
+                <input
+                  type="text"
+                  readOnly
+                  value="BBA Year 2 • Comprehensive Diagnostic & Analytical Pattern"
+                  className="search-input"
+                  style={{ width: "100%", marginTop: "6px", background: "#f8fafc", color: "#64748b" }}
+                />
+              </div>
+
+              {aiError && <p className="auth-error-msg" role="alert">{aiError}</p>}
+
+              <div className="modal-footer" style={{ marginTop: "20px" }}>
+                <button
+                  type="button"
+                  className="action-btn-secondary"
+                  onClick={() => setShowAiModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="action-btn-primary"
+                  style={{ background: "#4f46e5" }}
+                  disabled={aiGenerating}
+                >
+                  {aiGenerating ? "Generating Paper & PDFs..." : "✨ Generate Solved Paper"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

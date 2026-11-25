@@ -5,6 +5,11 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+import sys
+if sys.version_info >= (3, 13) and "crypt" not in sys.modules:
+    import types
+    sys.modules["crypt"] = types.ModuleType("crypt")
+
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from database import get_db

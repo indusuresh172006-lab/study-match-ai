@@ -1,6 +1,7 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 function Sidebar({ user, mobileOpen, onClose }) {
+  const location = useLocation();
   const isTeacher = user?.role === "teacher";
   const isAdmin = user?.role === "admin";
   const isStaff = isTeacher || isAdmin;
@@ -18,23 +19,36 @@ function Sidebar({ user, mobileOpen, onClose }) {
     { to: "/papers", label: "Previous Papers", icon: "📄" },
   ];
 
-  const navItems = isAdmin
-    ? [
-        { to: "/admin", label: "Admin Dashboard", icon: "🛡️" },
-        { to: "/admin/manage/teacher-requests", label: "Teacher Requests", icon: "👨‍🏫" },
-        { to: "/admin/manage/accounts", label: "Accounts", icon: "👥" },
-        { to: "/admin/manage/classes", label: "Classes", icon: "🏫" },
-        { to: "/admin/manage/content", label: "Content Management", icon: "🛠️" },
-      ]
-    : [...studentNavItems];
+  const teacherNavItems = [
+    { to: "/teacher", label: "Dashboard", icon: "📊", end: true },
+    { to: "/teacher/classes", label: "Classes & Marks", icon: "🏫" },
+    { to: "/teacher/curriculum", label: "Subjects & Topics", icon: "📚" },
+    { to: "/teacher/quizzes", label: "Quiz Questions", icon: "🎯" },
+    { to: "/teacher/groups", label: "Study Groups", icon: "👥" },
+    { to: "/teacher/counselling", label: "Counselling Requests", icon: "🤝" },
+    { to: "/teacher/revision-notes", label: "AI Revision Review", icon: "🧠" },
+    { to: "/papers", label: "Question Papers", icon: "📄" },
+    { to: "/materials", label: "Study Materials", icon: "📖" },
+    { to: "/mentor", label: "AI Mentor", icon: "🤖" },
+  ];
 
-  if (isTeacher) {
-    navItems.push({ to: "/teacher", label: "Teacher Dashboard", icon: "👨‍🏫" });
-    navItems.push({ to: "/teacher/manage", label: "Manage Content", icon: "🛠️" });
-  }
-  if (!isStaff) {
-    navItems.splice(1, 0, { to: "/profile", label: "My Profile", icon: "👤" });
-  }
+  const adminNavItems = [
+    { to: "/admin", label: "Dashboard", icon: "📊" },
+    { to: "/admin/manage/teacher-requests", label: "Teacher Requests", icon: "👨‍🏫" },
+    { to: "/admin/manage/accounts", label: "Accounts", icon: "👥" },
+    { to: "/admin/manage/classes", label: "Classes", icon: "🏫" },
+    { to: "/admin/manage/content", label: "Content Management", icon: "🛠️" },
+  ];
+
+  const navItems = isAdmin
+    ? adminNavItems
+    : isTeacher
+    ? teacherNavItems
+    : (() => {
+        const items = [...studentNavItems];
+        items.splice(1, 0, { to: "/profile", label: "My Profile", icon: "👤" });
+        return items;
+      })();
 
   return (
     <>
@@ -53,28 +67,43 @@ function Sidebar({ user, mobileOpen, onClose }) {
         <div className="sidebar-top">
           <div className="sidebar-menu-heading">NAVIGATION</div>
           <nav className="sidebar-nav">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/admin"}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `sidebar-link ${isActive ? "active" : ""}`
-                }
-              >
-                <span className="sidebar-icon">{item.icon}</span>
-                <span className="sidebar-label">{item.label}</span>
-              </NavLink>
-            ))}
+            {navItems.map((item) => {
+              const isItemActive = item.end || item.to === "/teacher" || item.to === "/admin" || item.to === "/dashboard"
+                ? location.pathname === item.to
+                : location.pathname.startsWith(item.to);
+
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={onClose}
+                  className={`sidebar-link ${isItemActive ? "active" : ""}`}
+                >
+                  <span className="sidebar-icon">{item.icon}</span>
+                  <span className="sidebar-label">{item.label}</span>
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 
         <div className="sidebar-footer">
-          <div className="sidebar-tip">
-            <span className="tip-title">💡 Study Tip</span>
-            <p>Mock tests update your Skill Profile and recommend targeted materials.</p>
-          </div>
+          {isTeacher ? (
+            <div className="sidebar-tip">
+              <span className="tip-title">👨‍🏫 Module 1 Tip</span>
+              <p>Manage scoped classes, topic-tagged CSV marks, syllabus topics, and quiz questions.</p>
+            </div>
+          ) : isAdmin ? (
+            <div className="sidebar-tip">
+              <span className="tip-title">🛡️ Admin Tip</span>
+              <p>Approve pending teacher requests and oversee platform institutions.</p>
+            </div>
+          ) : (
+            <div className="sidebar-tip">
+              <span className="tip-title">💡 Study Tip</span>
+              <p>Mock tests update your Skill Profile and recommend targeted materials.</p>
+            </div>
+          )}
         </div>
       </aside>
     </>

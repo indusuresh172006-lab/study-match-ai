@@ -19,8 +19,15 @@ DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = _require("DB_NAME")
 
+drivername = "postgresql+psycopg"
+try:
+    import psycopg2
+    drivername = "postgresql+psycopg2"
+except ImportError:
+    drivername = "postgresql+psycopg"
+
 DATABASE_URL = URL.create(
-    drivername="postgresql+psycopg2",
+    drivername=drivername,
     username=DB_USER,
     password=DB_PASSWORD,
     host=DB_HOST,

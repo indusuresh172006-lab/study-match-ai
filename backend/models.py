@@ -553,6 +553,8 @@ class QuestionPaper(Base):
     answer_key_file = Column(String(255), nullable=True) # Solution or answer key PDF
     approval_status = Column(String(20), default="approved", nullable=False) # pending, approved, rejected
     uploaded_by = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
+    source = Column(String(20), default="teacher", nullable=True) # teacher, ai
+    solutions = Column(JSON, nullable=True) # list of questions, answers, and step-by-step solutions
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     uploader = relationship("Student")

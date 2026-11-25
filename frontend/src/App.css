@@ -36,6 +36,14 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* Hide Microsoft Edge & browser native password reveal/clear eye icons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 body {
   background-color: var(--bg-main);
   color: var(--text-dark);
@@ -1102,6 +1110,459 @@ body {
   color: var(--primary);
   font-weight: 600;
   cursor: pointer;
+}
+
+/* ==========================================================================
+   Modern Split-Screen Login Page (#EAF7F5 bg, #08616B primary)
+   ========================================================================== */
+
+.login-split-card {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  max-width: 960px;
+  min-height: 520px;
+  background: #ffffff;
+  border-radius: 28px;
+  box-shadow: 0 16px 40px rgba(8, 97, 107, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  margin: auto;
+  align-items: stretch;
+}
+
+/* Left Section – 45% Width */
+.login-left-section {
+  flex: 0 0 45%;
+  width: 45%;
+  max-width: 45%;
+  padding: 44px 38px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.login-brand-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.login-flint-logo {
+  width: 95px;
+  height: 95px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 6px;
+}
+
+.login-brand-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #08616B;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.login-brand-subtitle {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 400;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.login-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.login-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: 0.2px;
+}
+
+.login-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.login-input-icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.login-input-icon.left {
+  left: 14px;
+}
+
+.login-text-input {
+  width: 100%;
+  padding: 12px 14px 12px 42px;
+  background-color: #F1F7F9;
+  border: 1px solid #dbe7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.login-text-input.has-right-icon {
+  padding-right: 42px;
+}
+
+.login-text-input::-ms-reveal,
+.login-text-input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.login-text-input:focus {
+  background-color: #ffffff;
+  border-color: #08616B;
+  box-shadow: 0 0 0 3px rgba(8, 97, 107, 0.15);
+}
+
+.login-text-input::placeholder {
+  color: #94a3b8;
+  font-size: 13.5px;
+}
+
+.login-password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+
+.login-password-toggle-btn:hover {
+  color: #08616B;
+}
+
+.login-error-alert {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.login-submit-button {
+  width: 100%;
+  background: #08616B;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 13px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(8, 97, 107, 0.25);
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.login-submit-button:hover:not(:disabled) {
+  background: #064e56;
+  box-shadow: 0 6px 16px rgba(8, 97, 107, 0.35);
+  transform: translateY(-1px);
+}
+
+.login-submit-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-divider-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  gap: 12px;
+  width: 100%;
+}
+
+.login-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.login-footer-text {
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.login-register-link-btn {
+  background: none;
+  border: none;
+  color: #08616B;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.login-register-link-btn:hover {
+  text-decoration: underline;
+  color: #064e56;
+}
+
+/* Right Section – 55% Width */
+.login-right-section {
+  flex: 0 0 55%;
+  width: 55%;
+  max-width: 55%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.login-illustration-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-illustration-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Registration Extensions for Split-Screen Layout */
+.login-split-card.register-split-card {
+  width: 95%;
+  max-width: 1240px;
+  min-height: 640px;
+  max-height: 94vh;
+}
+
+.login-split-card.register-split-card .login-left-section {
+  flex: 0 0 50%;
+  width: 50%;
+  max-width: 50%;
+  padding: 36px 48px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  justify-content: flex-start;
+}
+
+.login-split-card.register-split-card .login-right-section {
+  flex: 0 0 50%;
+  width: 50%;
+  max-width: 50%;
+}
+
+.login-split-card.register-split-card .login-brand-header {
+  margin-bottom: 18px;
+}
+
+.login-split-card.register-split-card .login-flint-logo {
+  width: 85px;
+  height: 85px;
+}
+
+.login-split-card.register-split-card .login-form {
+  gap: 14px;
+}
+
+.login-left-section.register-left-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.login-left-section.register-left-section::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.login-left-section.register-left-section::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.register-role-toggle {
+  display: flex;
+  background: #F1F7F9;
+  border: 1px solid #dbe7eb;
+  border-radius: 10px;
+  padding: 4px;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.register-role-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.register-role-btn:hover:not(.active) {
+  color: #08616B;
+}
+
+.register-role-btn.active {
+  background: #08616B;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(8, 97, 107, 0.25);
+}
+
+.register-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.login-text-select {
+  width: 100%;
+  padding: 12px 34px 12px 42px;
+  background-color: #F1F7F9;
+  border: 1px solid #dbe7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.login-text-select:focus {
+  background-color: #ffffff;
+  border-color: #08616B;
+  box-shadow: 0 0 0 3px rgba(8, 97, 107, 0.15);
+}
+
+.register-success-alert {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.register-goto-login-btn {
+  background: #08616B;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background 0.15s ease;
+}
+
+.register-goto-login-btn:hover {
+  background: #064e56;
+}
+
+/* Responsive adjustments */
+@media (max-width: 860px) {
+  .login-split-card {
+    flex-direction: column;
+    max-width: 440px;
+    min-height: auto;
+    border-radius: 20px;
+  }
+
+  .login-split-card.register-split-card {
+    max-height: none;
+  }
+
+  .login-left-section {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    padding: 32px 24px;
+  }
+
+  .login-left-section.register-left-section {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .login-right-section {
+    display: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .register-row-2col {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ==========================================================================
@@ -3855,6 +4316,129 @@ body {
   cursor: pointer;
 }
 
+/* ==========================================================================
+   Module 1: Teacher & Class Management Tab System & Enhancements
+   ========================================================================== */
+
+.teacher-module-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+}
+
+.teacher-module-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.teacher-module-tab-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.teacher-module-tab-btn.active {
+  background: var(--primary, #08616B);
+  border-color: var(--primary, #08616B);
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(8, 97, 107, 0.2);
+}
+
+.tab-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  min-width: 18px;
+  line-height: 1;
+}
+
+.teacher-module-tab-btn.active .tab-pill-badge {
+  background: #ffffff;
+  color: var(--primary, #08616B);
+}
+
+.teacher-module-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.teacher-shortcut-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  text-align: left;
+}
+
+.teacher-shortcut-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary, #08616B);
+  box-shadow: 0 4px 12px rgba(8, 97, 107, 0.08);
+}
+
+.teacher-shortcut-card h4,
+.teacher-shortcut-title {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teacher-shortcut-card p,
+.teacher-shortcut-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.4;
+}
+
+.teacher-shortcut-card .shortcut-arrow,
+.teacher-shortcut-link {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary, #08616B);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.teacher-embedded-mgmt {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
 
 /* ==========================================================================
    Module 4: Higher Studies & Course Guidance Styles

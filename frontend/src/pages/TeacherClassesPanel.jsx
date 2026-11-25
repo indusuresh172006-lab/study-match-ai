@@ -8,7 +8,7 @@ const EMPTY_CLASS = {
   academic_year: "",
 };
 
-function TeacherClassesPanel({ onSelectedClassChange, isAdmin = false }) {
+function TeacherClassesPanel({ onSelectedClassChange, isAdmin = false, hideHeader = false }) {
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [form, setForm] = useState(EMPTY_CLASS);
@@ -43,7 +43,9 @@ function TeacherClassesPanel({ onSelectedClassChange, isAdmin = false }) {
   }, [classes, selectedClassId]);
 
   useEffect(() => {
-    onSelectedClassChange(selectedClassId ? Number(selectedClassId) : null);
+    if (typeof onSelectedClassChange === "function") {
+      onSelectedClassChange(selectedClassId ? Number(selectedClassId) : null);
+    }
   }, [onSelectedClassChange, selectedClassId]);
 
   const createClass = async (event) => {
@@ -104,16 +106,18 @@ function TeacherClassesPanel({ onSelectedClassChange, isAdmin = false }) {
 
   return (
     <section className="teacher-section-card teacher-class-panel">
-      <div className="card-head-row">
-        <div>
-          <h3>🏫 Classes, Enrollment & Marks</h3>
-          <p className="subtext">
-            {isAdmin
-              ? "Review class rosters and import topic-tagged CSV/XLSX marks across the platform."
-              : "Create a scoped class, share its join code, and import topic-tagged CSV/XLSX marks."}
-          </p>
+      {!hideHeader && (
+        <div className="card-head-row">
+          <div>
+            <h3>🏫 Classes, Enrollment & Marks</h3>
+            <p className="subtext">
+              {isAdmin
+                ? "Review class rosters and import topic-tagged CSV/XLSX marks across the platform."
+                : "Create a scoped class, share its join code, and import topic-tagged CSV/XLSX marks."}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && <p className="auth-error-msg" role="alert">{error}</p>}
       {notice && <p className="scope-feedback" role="status">{notice}</p>}

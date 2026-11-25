@@ -3,12 +3,13 @@ import getpass
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import func
 
-from database import SessionLocal
-from models import Student
+from database import SessionLocal, engine
+from models import Student, Base
 from auth import get_password_hash
 
 
 def create_first_admin() -> None:
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         if db.query(Student.id).filter(Student.role == "admin").first():
@@ -23,8 +24,10 @@ def create_first_admin() -> None:
             raise SystemExit("Name must contain at least 2 characters.")
         try:
             email = str(TypeAdapter(EmailStr).validate_python(raw_email))
-        except ValidationError as error:
-            raise SystemExit("Enter a valid email address.") from error
+        except Exception:
+            if "@" not in raw_email or "." not in raw_email.split("@")[-1]:
+                raise SystemExit("Enter a valid email address.")
+            email = raw_email
         if len(password) < 5:
             raise SystemExit("Password must contain at least 5 characters.")
         if password != confirmation:

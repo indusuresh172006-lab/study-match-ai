@@ -1,0 +1,1515 @@
+/* ==========================================================================
+   FLINT HOMEPAGE STYLESHEET (Accurately Matching Figma Screenshot Design)
+   ========================================================================== */
+
+:root {
+  --flint-primary: #08616B;
+  --flint-primary-hover: #064E56;
+  --flint-primary-light: #E0F4F2;
+  --flint-bg-gradient: linear-gradient(180deg, #F0FAF9 0%, #E8F7F5 100%);
+  --flint-bg-soft: #F4FAF9;
+  --flint-text-dark: #0F172A;
+  --flint-text-muted: #64748B;
+  --flint-text-body: #475569;
+  --flint-border-color: rgba(8, 97, 107, 0.08);
+  --flint-card-shadow: 0 4px 20px rgba(8, 97, 107, 0.06);
+  --flint-card-radius: 20px;
+}
+
+.flint-home-wrapper {
+  min-height: 100vh;
+  background-color: #ffffff;
+  color: var(--flint-text-body);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   CONTAINER & REUSABLE LAYOUT
+   ========================================================================== */
+.flint-container {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+.flint-section {
+  padding: 80px 0;
+  box-sizing: border-box;
+}
+
+/* Centered Header for Sections */
+.flint-section-header-center {
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto 48px;
+}
+
+.flint-section-heading {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--flint-text-dark);
+  letter-spacing: -0.5px;
+  margin: 12px 0 10px;
+  line-height: 1.25;
+}
+
+.flint-section-subhead {
+  font-size: 15px;
+  color: var(--flint-text-muted);
+  line-height: 1.6;
+  margin: 0 auto;
+}
+
+.flint-section-subhead-left {
+  font-size: 15px;
+  color: var(--flint-text-muted);
+  line-height: 1.6;
+  margin: 14px 0 28px;
+}
+
+/* Reusable Pill Badge */
+.flint-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: var(--flint-primary-light);
+  color: var(--flint-primary);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  padding: 5px 14px;
+  border-radius: 30px;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   HEADER & NAVIGATION
+   ========================================================================== */
+.flint-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  transition: all 0.25s ease;
+  border-bottom: 1px solid rgba(8, 97, 107, 0.06);
+}
+
+.flint-header.is-scrolled {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+}
+
+.flint-header-container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+/* Brand Logo */
+.flint-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.flint-nav-logo-img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+.flint-brand-text {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--flint-primary);
+  letter-spacing: 0.6px;
+}
+
+/* Desktop Nav Links */
+.flint-desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.flint-nav-link {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #334155;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  position: relative;
+}
+
+.flint-nav-link:hover,
+.flint-nav-link.active {
+  color: var(--flint-primary);
+  font-weight: 600;
+}
+
+/* Header Actions */
+.flint-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.flint-btn-signin {
+  background: transparent;
+  border: 1px solid #CBD5E1;
+  color: var(--flint-text-dark);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.flint-btn-signin:hover {
+  border-color: var(--flint-primary);
+  color: var(--flint-primary);
+}
+
+.flint-btn-getstarted {
+  background: var(--flint-primary);
+  border: 1px solid var(--flint-primary);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.flint-btn-getstarted:hover {
+  background: var(--flint-primary-hover);
+  border-color: var(--flint-primary-hover);
+}
+
+.flint-user-icon-btn {
+  width: 36px;
+  height: 36px;
+  background-color: var(--flint-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.flint-user-icon-btn:hover {
+  transform: scale(1.05);
+}
+
+.flint-hamburger-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.flint-hamburger-btn .bar {
+  height: 2.5px;
+  width: 100%;
+  background-color: var(--flint-text-dark);
+  border-radius: 2px;
+  transition: all 0.25s ease;
+}
+
+/* Mobile Dropdown */
+.flint-mobile-dropdown {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  padding: 16px 24px 20px;
+  border-bottom: 1px solid #E2E8F0;
+  gap: 14px;
+}
+
+.flint-mobile-dropdown a {
+  text-decoration: none;
+  color: var(--flint-text-dark);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.flint-mobile-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   1. HERO SECTION
+   ========================================================================= */
+.flint-hero-section {
+  background: var(--flint-bg-gradient);
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
+  box-sizing: border-box;
+}
+
+.flint-hero-container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  box-sizing: border-box;
+}
+
+.flint-hero-left {
+  flex: 1 1 52%;
+  max-width: 580px;
+}
+
+.flint-hero-headline {
+  margin: 18px 0 16px;
+  line-height: 1.15;
+}
+
+.flint-hero-headline span {
+  display: block;
+  font-size: 50px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.flint-hero-headline .dark-text {
+  color: var(--flint-text-dark);
+}
+
+.flint-hero-headline .teal-text {
+  color: var(--flint-primary);
+}
+
+.flint-hero-subtext {
+  font-size: 16px;
+  color: var(--flint-text-body);
+  line-height: 1.6;
+  margin-bottom: 32px;
+  max-width: 520px;
+}
+
+.flint-hero-cta-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.flint-hero-btn-primary {
+  background: var(--flint-primary);
+  color: #ffffff;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(8, 97, 107, 0.28);
+  transition: all 0.2s ease;
+}
+
+.flint-hero-btn-primary:hover {
+  background: var(--flint-primary-hover);
+  transform: translateY(-1px);
+}
+
+.flint-hero-btn-secondary {
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  border: none;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.flint-hero-btn-secondary:hover {
+  background: #d0f0ec;
+}
+
+.flint-hero-guarantee {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--flint-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* Floating Scholar Card (Right) */
+.flint-hero-right {
+  flex: 1 1 48%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.flint-scholar-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(8, 97, 107, 0.12), 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* Card Top Bar */
+.flint-card-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.flint-avatars-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flint-avatar-pill-stack {
+  display: flex;
+  align-items: center;
+}
+
+.flint-avatar-bubble {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-left: -6px;
+}
+
+.flint-avatar-bubble:first-child {
+  margin-left: 0;
+}
+
+.flint-avatar-bubble.dark {
+  background-color: #08616B;
+}
+
+.flint-avatar-bubble.teal {
+  background-color: #0d7a86;
+}
+
+.flint-avatar-bubble.deep {
+  background-color: #1e3a47;
+}
+
+.flint-scholar-count {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--flint-text-dark);
+}
+
+.flint-rating-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--flint-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.flint-rating-badge .star-icon {
+  font-size: 14px;
+}
+
+/* Photo Area with Bottom Overlay */
+.flint-hero-photo-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  width: 100%;
+  background: #edf5f4;
+}
+
+.flint-hero-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+}
+
+.flint-photo-overlay-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.flint-overlay-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flint-overlay-icon {
+  width: 28px;
+  height: 28px;
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flint-overlay-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--flint-text-dark);
+}
+
+.flint-overlay-sub {
+  font-size: 10.5px;
+  color: var(--flint-text-muted);
+}
+
+.flint-overlay-pill-progress {
+  width: 44px;
+  height: 8px;
+  background: var(--flint-primary);
+  border-radius: 4px;
+}
+
+/* Dual Stats Grid */
+.flint-dual-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.flint-stat-box {
+  background: #F1FAF9;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.flint-stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--flint-primary);
+  margin-bottom: 6px;
+}
+
+.flint-stat-header .stat-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.flint-stat-number {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--flint-text-dark);
+  line-height: 1.2;
+}
+
+.flint-stat-desc {
+  font-size: 11px;
+  color: var(--flint-text-muted);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   2. ABOUT FLINT SECTION
+   ========================================================================= */
+.flint-about-section {
+  background-color: #ffffff;
+}
+
+.flint-about-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.flint-about-card {
+  background: #ffffff;
+  border-radius: var(--flint-card-radius);
+  border: 1px solid var(--flint-border-color);
+  box-shadow: var(--flint-card-shadow);
+  padding: 34px 28px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flint-about-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(8, 97, 107, 0.09);
+}
+
+.flint-card-icon-box {
+  width: 44px;
+  height: 44px;
+  background-color: var(--flint-primary-light);
+  color: var(--flint-primary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.flint-card-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--flint-text-dark);
+  margin: 0 0 12px;
+}
+
+.flint-card-desc {
+  font-size: 14px;
+  color: var(--flint-text-body);
+  line-height: 1.6;
+  margin: 0 0 20px;
+  flex: 1;
+}
+
+.flint-card-link {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--flint-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.flint-card-link:hover {
+  color: var(--flint-primary-hover);
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   3. OUR LEARNING FEATURES SECTION
+   ========================================================================= */
+.flint-features-section {
+  background-color: #F8FCFB;
+}
+
+.flint-features-header-split {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 44px;
+}
+
+.flint-features-header-left {
+  flex: 1;
+}
+
+.flint-features-header-left .flint-section-heading {
+  margin: 12px 0 0;
+}
+
+.flint-features-header-right {
+  flex: 1;
+  max-width: 440px;
+}
+
+.flint-features-header-right p {
+  font-size: 15px;
+  color: var(--flint-text-body);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.flint-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.flint-feature-card {
+  background: #ffffff;
+  border-radius: var(--flint-card-radius);
+  border: 1px solid var(--flint-border-color);
+  box-shadow: var(--flint-card-shadow);
+  padding: 30px 26px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flint-feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(8, 97, 107, 0.08);
+}
+
+.flint-feature-card .flint-card-title {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.flint-feature-card .flint-card-desc {
+  margin-bottom: 0;
+}
+
+/* ==========================================================================
+   4. EXPLORE WHAT YOU CAN LEARN (PROGRAM CATALOGUE)
+   ========================================================================= */
+.flint-courses-section {
+  background-color: #ffffff;
+}
+
+.flint-courses-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.flint-course-card {
+  background: #ffffff;
+  border-radius: var(--flint-card-radius);
+  border: 1px solid var(--flint-border-color);
+  box-shadow: var(--flint-card-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flint-course-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(8, 97, 107, 0.1);
+}
+
+.flint-course-image-wrap {
+  position: relative;
+  height: 180px;
+  width: 100%;
+  background: #e6f4f2;
+  overflow: hidden;
+}
+
+.flint-course-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.flint-course-category-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: var(--flint-primary);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.flint-course-body {
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.flint-course-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.meta-duration {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--flint-text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.meta-level-pill {
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 12px;
+}
+
+.flint-course-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--flint-text-dark);
+  margin: 0 0 10px;
+  line-height: 1.35;
+}
+
+.flint-course-desc {
+  font-size: 13.5px;
+  color: var(--flint-text-body);
+  line-height: 1.55;
+  margin: 0 0 22px;
+  flex: 1;
+}
+
+.flint-course-btn {
+  width: 100%;
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  border: none;
+  border-radius: 30px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.flint-course-btn:hover {
+  background: var(--flint-primary);
+  color: #ffffff;
+}
+
+/* View All Courses Row */
+.flint-view-all-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+.flint-btn-view-all {
+  background: #ffffff;
+  border: 1px solid #CBD5E1;
+  color: var(--flint-primary);
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.flint-btn-view-all:hover {
+  border-color: var(--flint-primary);
+  background: #FAFDFD;
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   5. HOW FLINT WORKS SECTION
+   ========================================================================= */
+.flint-how-it-works-section {
+  background-color: #F8FCFB;
+}
+
+.flint-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+}
+
+.flint-step-card {
+  background: #ffffff;
+  border-radius: var(--flint-card-radius);
+  border: 1px solid var(--flint-border-color);
+  box-shadow: var(--flint-card-shadow);
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.flint-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.flint-step-number {
+  font-size: 32px;
+  font-weight: 800;
+  color: #94D0C9;
+  line-height: 1;
+}
+
+.flint-step-icon-bubble {
+  width: 36px;
+  height: 36px;
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flint-step-card .flint-card-title {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.flint-step-card .flint-card-desc {
+  font-size: 13.5px;
+  margin-bottom: 0;
+}
+
+/* ==========================================================================
+   6. THE FLINT ADVANTAGE SECTION
+   ========================================================================= */
+.flint-advantage-section {
+  background-color: #ffffff;
+}
+
+.flint-advantage-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+}
+
+.flint-advantage-mockup-wrap {
+  flex: 1 1 48%;
+  display: flex;
+  justify-content: center;
+}
+
+.flint-preview-mockup-card {
+  width: 100%;
+  max-width: 460px;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(8, 97, 107, 0.08);
+  box-shadow: 0 16px 40px rgba(8, 97, 107, 0.09);
+  padding: 22px;
+  box-sizing: border-box;
+}
+
+.flint-mockup-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.flint-traffic-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.flint-traffic-dots .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.flint-traffic-dots .dot.red {
+  background-color: #EF4444;
+}
+
+.flint-traffic-dots .dot.yellow {
+  background-color: #F59E0B;
+}
+
+.flint-traffic-dots .dot.green {
+  background-color: #10B981;
+}
+
+.flint-mockup-url {
+  font-size: 12px;
+  color: var(--flint-text-muted);
+  font-family: monospace;
+}
+
+.flint-mockup-tag {
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+/* Milestone Box Inside Mockup */
+.flint-mockup-milestone-box {
+  background: #EAF7F6;
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0;
+}
+
+.milestone-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--flint-primary);
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.milestone-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--flint-text-dark);
+  margin: 0 0 3px;
+}
+
+.milestone-subtitle {
+  font-size: 12px;
+  color: var(--flint-text-muted);
+  margin: 0;
+}
+
+.flint-milestone-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 4px solid var(--flint-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--flint-primary);
+}
+
+/* Task items inside mockup */
+.flint-mockup-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #FAFDFD;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--flint-text-dark);
+}
+
+.flint-mockup-task-item:last-child {
+  margin-bottom: 0;
+}
+
+.flint-mockup-task-item .task-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--flint-text-dark);
+}
+
+.flint-mockup-task-item .task-left svg {
+  color: var(--flint-primary);
+}
+
+.task-status-ready {
+  background: var(--flint-primary-light);
+  color: var(--flint-primary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+}
+
+.task-status-locked {
+  background: #F1F5F9;
+  color: #94A3B8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+}
+
+/* Right Column Benefits */
+.flint-advantage-text-wrap {
+  flex: 1 1 52%;
+  max-width: 560px;
+}
+
+.flint-benefits-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.flint-benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 15px;
+  color: var(--flint-text-dark);
+  font-weight: 500;
+}
+
+.flint-benefit-check {
+  width: 24px;
+  height: 24px;
+  background-color: var(--flint-primary);
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   7. WHAT LEARNERS SAY (TESTIMONIALS) SECTION
+   ========================================================================= */
+.flint-testimonials-section {
+  background-color: #F8FCFB;
+}
+
+.flint-testimonial-card-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.flint-testimonial-card {
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1px solid var(--flint-border-color);
+  box-shadow: 0 10px 32px rgba(8, 97, 107, 0.08);
+  padding: 36px 36px;
+  text-align: center;
+}
+
+.flint-testimonial-badge-icon {
+  width: 48px;
+  height: 48px;
+  background-color: var(--flint-primary-light);
+  color: var(--flint-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.flint-testimonial-quote {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--flint-text-dark);
+  font-style: italic;
+  margin: 0 0 24px;
+}
+
+.flint-testimonial-author {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #F1F5F9;
+  padding-top: 18px;
+}
+
+.author-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--flint-text-dark);
+  text-align: left;
+}
+
+.author-role {
+  font-size: 12.5px;
+  color: var(--flint-text-muted);
+  text-align: left;
+}
+
+.flint-author-rating {
+  color: #F59E0B;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.flint-author-rating span {
+  color: var(--flint-primary);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+/* ==========================================================================
+   8. CALL TO ACTION BANNER
+   ========================================================================= */
+.flint-cta-section {
+  padding: 40px 0 80px;
+}
+
+.flint-cta-banner {
+  background: var(--flint-primary);
+  border-radius: 28px;
+  padding: 60px 32px;
+  text-align: center;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(8, 97, 107, 0.28);
+}
+
+.flint-cta-decor-waves {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.flint-cta-decor-waves svg {
+  width: 100%;
+  height: 100%;
+}
+
+.flint-cta-content {
+  position: relative;
+  z-index: 2;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.flint-cta-title {
+  font-size: 38px;
+  font-weight: 800;
+  margin: 0 0 14px;
+  letter-spacing: -0.5px;
+}
+
+.flint-cta-subtext {
+  font-size: 16px;
+  color: #D1FAF4;
+  line-height: 1.6;
+  margin: 0 0 32px;
+}
+
+.flint-cta-button {
+  background: #ffffff;
+  color: var(--flint-primary);
+  border: none;
+  border-radius: 12px;
+  padding: 14px 34px;
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.flint-cta-button:hover {
+  background: #F4FAF9;
+  transform: translateY(-2px);
+}
+
+.flint-cta-footnote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 12.5px;
+  color: #A7F3D0;
+}
+
+/* ==========================================================================
+   9. FOOTER
+   ========================================================================= */
+.flint-footer {
+  background-color: #ffffff;
+  border-top: 1px solid #E2E8F0;
+  padding: 60px 0 32px;
+}
+
+.flint-footer-top-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1.1fr 1.6fr;
+  gap: 48px;
+}
+
+.flint-footer-col.brand-col .flint-logo-link {
+  margin-bottom: 14px;
+}
+
+.flint-footer-mission {
+  font-size: 14px;
+  color: var(--flint-text-muted);
+  line-height: 1.6;
+  margin: 0 0 20px;
+  max-width: 330px;
+}
+
+.flint-social-links-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flint-social-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #F1F5F9;
+  border: none;
+  color: var(--flint-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.flint-social-btn:hover {
+  background: var(--flint-primary-light);
+  color: var(--flint-primary-hover);
+}
+
+.flint-footer-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--flint-text-dark);
+  margin: 0 0 16px;
+}
+
+.flint-footer-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.flint-footer-nav-list li a {
+  text-decoration: none;
+  color: var(--flint-text-muted);
+  font-size: 14px;
+  transition: color 0.15s ease;
+}
+
+.flint-footer-nav-list li a:hover {
+  color: var(--flint-primary);
+}
+
+.flint-footer-redefined {
+  font-size: 14px;
+  color: var(--flint-text-muted);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.flint-accredited-badge {
+  background: #E8F7F5;
+  border-radius: 12px;
+  padding: 10px 16px;
+  color: var(--flint-primary);
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Footer Bottom Bar */
+.flint-footer-bottom-bar {
+  border-top: 1px solid #E2E8F0;
+  margin-top: 48px;
+  padding-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.flint-copyright {
+  font-size: 13.5px;
+  color: var(--flint-text-muted);
+}
+
+.flint-legal-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.flint-legal-links a {
+  text-decoration: none;
+  font-size: 13.5px;
+  color: var(--flint-text-muted);
+  transition: color 0.15s ease;
+}
+
+.flint-legal-links a:hover {
+  color: var(--flint-primary);
+}
+
+/* ==========================================================================
+   RESPONSIVE MEDIA QUERIES
+   ========================================================================= */
+
+/* Tablets / Medium Screens */
+@media (max-width: 980px) {
+  .flint-hero-container {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .flint-hero-left {
+    max-width: 100%;
+  }
+
+  .flint-hero-subtext {
+    margin: 0 auto 28px;
+  }
+
+  .flint-hero-cta-group {
+    justify-content: center;
+  }
+
+  .flint-hero-guarantee {
+    justify-content: center;
+  }
+
+  .flint-hero-right {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .flint-about-grid,
+  .flint-courses-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .flint-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .flint-steps-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .flint-advantage-grid {
+    flex-direction: column;
+  }
+
+  .flint-advantage-text-wrap {
+    max-width: 100%;
+  }
+
+  .flint-footer-top-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Mobile Screens */
+@media (max-width: 768px) {
+  .flint-desktop-nav {
+    display: none;
+  }
+
+  .flint-hamburger-btn {
+    display: flex;
+  }
+
+  .flint-hero-headline span {
+    font-size: 36px;
+  }
+
+  .flint-about-grid,
+  .flint-courses-grid,
+  .flint-features-grid,
+  .flint-steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flint-features-header-split {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .flint-footer-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flint-cta-title {
+    font-size: 28px;
+  }
+
+  .flint-footer-bottom-bar {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .flint-legal-links {
+    justify-content: center;
+  }
+}

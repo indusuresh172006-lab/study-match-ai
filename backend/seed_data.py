@@ -13,13 +13,13 @@ from auth import get_password_hash
 def seed():
     print("Starting database schema update and data seeding...")
     
+    Base.metadata.create_all(bind=engine)
+    print("Tables created / verified successfully.")
+
     # 1. Update schema
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE students ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'student';"))
         conn.commit()
-    
-    Base.metadata.create_all(bind=engine)
-    print("Tables created / verified successfully.")
 
     db = SessionLocal()
     try:
