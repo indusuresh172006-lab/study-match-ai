@@ -19,6 +19,10 @@ if raw_db_url:
     parsed_url = make_url(raw_db_url)
     if "psycopg" not in parsed_url.drivername:
         parsed_url = parsed_url.set(drivername=drivername)
+    if "channel_binding" in parsed_url.query:
+        query_dict = dict(parsed_url.query)
+        query_dict.pop("channel_binding", None)
+        parsed_url = parsed_url.set(query=query_dict)
     DATABASE_URL = parsed_url
 else:
     def _require(name):
