@@ -99,6 +99,25 @@ def list_subjects(
             subject for subject in subjects
             if normalize_academic_year(subject.academic_year) == normalized_year
         ]
+
+    # Intelligent fallback: If no strict college/year match exists, find course matches or general core subjects
+    if not subjects and course and course.strip():
+        # Match by course name
+        course_subjects = db.query(Subject).filter(
+            func.lower(func.trim(Subject.course)) == course.strip().lower()
+        ).order_by(Subject.name).all()
+        if course_subjects:
+            subjects = course_subjects
+
+    # If still no course-specific subjects found, provide core foundational subjects so students can always practice
+    if not subjects:
+        core_subjects = db.query(Subject).filter(
+            or_(Subject.course == None, Subject.course == "")
+        ).order_by(Subject.name).all()
+        if core_subjects:
+            subjects = core_subjects
+        else:
+            subjects = db.query(Subject).order_by(Subject.name).all()
     results = []
 
     for s in subjects:

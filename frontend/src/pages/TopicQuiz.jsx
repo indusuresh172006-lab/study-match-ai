@@ -48,20 +48,11 @@ function TopicQuiz() {
         semester: studentProfile.semester || "",
       });
 
-      if (
-        !studentProfile?.course?.trim() ||
-        !studentProfile?.college?.trim() ||
-        !studentProfile?.semester?.trim()
-      ) {
-        setSubjects([]);
-        return;
-      }
-
       const res = await api.get("/api/v1/subjects", {
         params: {
-          course: studentProfile.course,
-          curriculum: studentProfile.college,
-          academic_year: studentProfile.semester,
+          course: studentProfile.course || "",
+          curriculum: studentProfile.college || "",
+          academic_year: studentProfile.semester || "",
         },
       });
       setSubjects(res.data || []);
