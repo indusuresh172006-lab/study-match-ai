@@ -22,13 +22,15 @@ def init_db():
         from seed_day1 import seed_curriculum
         from seed_day2_questions import seed_questions
         from seed_diploma_computer_sem3 import seed_diploma_computer_sem3
-        print("Seeding core academic subjects and diagnostic questions...")
+        from seed_real_papers import seed_real_previous_papers
+        print("Seeding core academic subjects, diagnostic questions, and real solved previous papers...")
         seed_curriculum()
         seed_questions()
         seed_diploma_computer_sem3()
-        print("Core subjects and quizzes seeded successfully!")
+        seed_real_previous_papers()
+        print("Core subjects, quizzes, and real previous papers seeded successfully!")
     except Exception as e:
-        print(f"Notice: Seeding curriculum: {e}")
+        print(f"Notice: Seeding curriculum/papers: {e}")
 
 if __name__ == "__main__":
     init_db()

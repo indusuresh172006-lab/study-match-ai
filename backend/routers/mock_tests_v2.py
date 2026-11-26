@@ -48,7 +48,20 @@ def _paper_matches_student_scope(paper: QuestionPaper, scope) -> bool:
         return True
 
     course, curriculum, academic_year = scope
-    return bool(course and curriculum and academic_year) and (
+    # Universal papers (general entrance and board papers) are accessible to all students
+    if not paper.course and not paper.curriculum:
+        return True
+
+    # Course-matched papers
+    if paper.course and course:
+        p_c = (paper.course or "").strip().casefold()
+        if p_c == course or p_c in course or course in p_c:
+            return True
+
+    if not course or not curriculum:
+        return True
+
+    return (
         (paper.course or "").strip().casefold() == course
         and (paper.curriculum or "").strip().casefold() == curriculum
         and normalize_academic_year(paper.academic_year) == academic_year
@@ -60,12 +73,17 @@ def _filter_papers_to_scope(query, scope):
         return query
 
     course, curriculum, _ = scope
-    if not course or not curriculum:
-        return query.filter(QuestionPaper.id == -1)
+    if not course:
+        return query
 
+    from sqlalchemy import or_
     return query.filter(
-        func.lower(func.trim(QuestionPaper.course)) == course,
-        func.lower(func.trim(QuestionPaper.curriculum)) == curriculum,
+        or_(
+            QuestionPaper.course == None,
+            QuestionPaper.course == "",
+            func.lower(func.trim(QuestionPaper.course)) == course,
+            func.lower(QuestionPaper.course).like(f"%{course}%"),
+        )
     )
 
 
@@ -164,6 +182,20 @@ def _paper_dict(p: QuestionPaper):
         p.uploader.name if getattr(p, "uploader", None) else "Faculty / Department"
     )
 
+    solutions = getattr(p, "solutions", None) or []
+    formatted_questions = [
+        {
+            "id": i + 1,
+            "question_number": i + 1,
+            "topic": q.get("topic", p.subject),
+            "question_text": q.get("question_text", ""),
+            "options": q.get("options", []),
+            "correct_option": q.get("correct_option", 0),
+            "step_by_step_solution": q.get("step_by_step_solution", ""),
+        }
+        for i, q in enumerate(solutions)
+    ]
+
     return {
         "id": p.id,
         "exam_name": p.exam_name,
@@ -179,8 +211,10 @@ def _paper_dict(p: QuestionPaper):
         "approval_status": p.approval_status,
         "source": source_val,
         "uploader_name": uploader_label,
-        "has_solutions": bool(getattr(p, "solutions", None) or p.answer_key_file),
-        "solutions": getattr(p, "solutions", None),
+        "has_solutions": bool(solutions or p.answer_key_file),
+        "solutions": solutions,
+        "questions": formatted_questions,
+        "time_limit_minutes": 60,
     }
 
 

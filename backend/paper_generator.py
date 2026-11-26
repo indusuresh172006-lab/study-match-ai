@@ -168,6 +168,126 @@ def generate_paper_pdfs(file_code: str, title: str, exam_name: str, meta_info: d
 
 
 SUBJECT_QUESTION_BANKS = {
+    "computer science": [
+        {
+            "topic": "Data Structures & Algorithms",
+            "question_text": "What is the worst-case time complexity of searching an element in a balanced AVL binary search tree with n nodes?",
+            "options": ["O(log n)", "O(n)", "O(1)", "O(n log n)"],
+            "correct_option": 0,
+            "step_by_step_solution": "In an AVL tree, the height is guaranteed to be strictly bounded by 1.44 * log2(n). Therefore, search, insertion, and deletion operations all run in O(log n) time in the worst case."
+        },
+        {
+            "topic": "Operating Systems & Process Synchronization",
+            "question_text": "Which condition is NOT one of the four necessary conditions for a deadlock to occur as described by Coffman?",
+            "options": ["Mutual Exclusion", "Hold and Wait", "Preemption Allowed", "Circular Wait"],
+            "correct_option": 2,
+            "step_by_step_solution": "The four Coffman conditions for deadlock are: Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait. If preemption is allowed, deadlock cannot occur."
+        },
+        {
+            "topic": "Relational Database Management (DBMS)",
+            "question_text": "A relation is in Boyce-Codd Normal Form (BCNF) if and only if for every non-trivial functional dependency X -> Y:",
+            "options": ["X is a superkey", "Y is a prime attribute", "X is a candidate key and Y is prime", "The relation has no transitive dependencies"],
+            "correct_option": 0,
+            "step_by_step_solution": "BCNF requires that for every non-trivial functional dependency X -> Y, the determinant X must be a superkey of the relation."
+        },
+        {
+            "topic": "Computer Networks & Protocols",
+            "question_text": "Which Transport Layer protocol provides reliable, connection-oriented byte-stream delivery with congestion and flow control?",
+            "options": ["Transmission Control Protocol (TCP)", "User Datagram Protocol (UDP)", "Internet Protocol (IP)", "Address Resolution Protocol (ARP)"],
+            "correct_option": 0,
+            "step_by_step_solution": "TCP establishes a connection via a 3-way handshake and guarantees reliable delivery, error checking, in-order sequencing, and flow control using sliding windows."
+        }
+    ],
+    "mathematics": [
+        {
+            "topic": "Calculus & Limits",
+            "question_text": "Evaluate the limit: lim(x -> 0) [sin(5x) / (2x)].",
+            "options": ["5/2", "2/5", "0", "1"],
+            "correct_option": 0,
+            "step_by_step_solution": "Using the standard limit lim(u -> 0) [sin(u)/u] = 1, lim(x -> 0) [sin(5x)/(2x)] = (5/2) * lim(5x -> 0) [sin(5x)/(5x)] = (5/2) * 1 = 5/2."
+        },
+        {
+            "topic": "Linear Algebra & Matrices",
+            "question_text": "If a square matrix A of size 3x3 has det(A) = 4, what is det(2A)?",
+            "options": ["32", "8", "16", "24"],
+            "correct_option": 0,
+            "step_by_step_solution": "For an n x n matrix, det(k * A) = k^n * det(A). Here n = 3 and k = 2, so det(2A) = 2^3 * det(A) = 8 * 4 = 32."
+        },
+        {
+            "topic": "Probability & Statistics",
+            "question_text": "If events A and B are independent with P(A) = 0.4 and P(B) = 0.5, what is P(A U B)?",
+            "options": ["0.70", "0.90", "0.20", "0.60"],
+            "correct_option": 0,
+            "step_by_step_solution": "For independent events, P(A n B) = P(A) * P(B) = 0.4 * 0.5 = 0.20. By addition rule, P(A U B) = P(A) + P(B) - P(A n B) = 0.4 + 0.5 - 0.20 = 0.70."
+        },
+        {
+            "topic": "Differential Equations",
+            "question_text": "What is the integrating factor (IF) for the linear differential equation dy/dx + (2/x)y = x^3?",
+            "options": ["x^2", "2 ln(x)", "e^(2x)", "x^3"],
+            "correct_option": 0,
+            "step_by_step_solution": "IF = e^(integral P(x) dx) = e^(integral (2/x) dx) = e^(2 ln|x|) = e^(ln(x^2)) = x^2."
+        }
+    ],
+    "biology": [
+        {
+            "topic": "Genetics & Molecular Biology",
+            "question_text": "In DNA replication, which enzyme is responsible for unwinding the double helix at the replication fork?",
+            "options": ["DNA Helicase", "DNA Polymerase III", "DNA Ligase", "Topoisomerase (Gyrase)"],
+            "correct_option": 0,
+            "step_by_step_solution": "DNA Helicase breaks the hydrogen bonds between complementary base pairs to unwind and separate the two DNA strands at the replication fork."
+        },
+        {
+            "topic": "Cell Biology & Energy Transfer",
+            "question_text": "During aerobic cellular respiration, in which organelle compartment does the Krebs (Citric Acid) Cycle take place?",
+            "options": ["Mitochondrial Matrix", "Cytoplasm / Cytosol", "Mitochondrial Intermembrane Space", "Cristae Membrane"],
+            "correct_option": 0,
+            "step_by_step_solution": "Glycolysis takes place in the cytosol, the Krebs cycle occurs within the mitochondrial matrix, and the Electron Transport Chain resides on the inner mitochondrial cristae."
+        },
+        {
+            "topic": "Human Physiology & Circulation",
+            "question_text": "Which component of the human heart's conduction system is known as the natural physiological pacemaker?",
+            "options": ["Sinoatrial (SA) Node", "Atrioventricular (AV) Node", "Bundle of His", "Purkinje Fibers"],
+            "correct_option": 0,
+            "step_by_step_solution": "The SA node located in the right atrium initiates rhythmic electrical action potentials (~70-75 bpm) and serves as the primary cardiac pacemaker."
+        },
+        {
+            "topic": "Ecology & Ecosystem Dynamics",
+            "question_text": "According to Lindeman's 10% law of ecological trophic efficiency, what percentage of chemical energy is typically transferred from one trophic level to the next?",
+            "options": ["10%", "50%", "1%", "25%"],
+            "correct_option": 0,
+            "step_by_step_solution": "Lindeman's law states that only roughly 10% of the net energy entering one trophic level is incorporated into the biomass of the subsequent level; ~90% is dissipated as metabolic heat."
+        }
+    ],
+    "physics": [
+        {
+            "topic": "Mechanics & Gravitation",
+            "question_text": "What is the escape velocity from the surface of Earth in terms of acceleration due to gravity (g) and Earth's radius (R)?",
+            "options": ["sqrt(2gR)", "sqrt(gR)", "2*sqrt(gR)", "sqrt(gR / 2)"],
+            "correct_option": 0,
+            "step_by_step_solution": "Setting kinetic energy equal to gravitational potential energy: (1/2)m*v^2 = G*M*m / R = m*g*R. Solving gives v_escape = sqrt(2gR) ~ 11.2 km/s."
+        },
+        {
+            "topic": "Electromagnetism",
+            "question_text": "Faraday's Law of Electromagnetic Induction states that the induced electromotive force (EMF) in a closed circuit is directly proportional to:",
+            "options": ["The time rate of change of magnetic flux", "The total electrical resistance", "The magnetic permeability of free space", "The square of the electric current"],
+            "correct_option": 0,
+            "step_by_step_solution": "Faraday's Law: EMF = -d(Phi_B)/dt. The induced electromotive force is equal to the negative time rate of change of magnetic flux through the loop."
+        },
+        {
+            "topic": "Optics & Wave Motion",
+            "question_text": "In Young's Double Slit Experiment, if the distance between the two slits is halved and the screen distance is doubled, the fringe width (beta) becomes:",
+            "options": ["4 times greater", "2 times greater", "Half of original", "Unchanged"],
+            "correct_option": 0,
+            "step_by_step_solution": "Fringe width beta = (lambda * D) / d. If D' = 2D and d' = d/2, beta' = (lambda * 2D) / (d/2) = 4 * (lambda * D / d) = 4 * beta."
+        },
+        {
+            "topic": "Modern Physics & Quantum Theory",
+            "question_text": "In Einstein's photoelectric equation (h*nu = Phi + K_max), what physical quantity does the work function Phi represent?",
+            "options": ["The minimum energy needed to liberate an electron from the metal surface", "The kinetic energy of the incoming photon", "The maximum velocity of photoelectrons", "The threshold wavelength in vacuum"],
+            "correct_option": 0,
+            "step_by_step_solution": "The work function Phi is the minimum energy required to eject an electron from the surface of a given metal against the lattice potential."
+        }
+    ],
     "marketing": [
         {
             "topic": "Market Segmentation, Targeting & Positioning (STP)",

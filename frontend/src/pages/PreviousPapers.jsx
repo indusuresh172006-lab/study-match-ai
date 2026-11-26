@@ -19,6 +19,16 @@ function PreviousPapers({ user }) {
   const [selectedSource, setSelectedSource] = useState("All"); // 'All' | 'teacher' | 'ai'
   const [topicSearch, setTopicSearch] = useState("");
 
+  // Dynamic 2-Year Window Calculation (automatically updates with current calendar year)
+  const currentCalendarYear = new Date().getFullYear();
+  const prevYear1 = currentCalendarYear - 1;
+  const prevYear2 = currentCalendarYear - 2;
+  const [onlyPreviousTwoYears, setOnlyPreviousTwoYears] = useState(true);
+
+  // Student Profile & Course Scoped Subjects
+  const [studentProfile, setStudentProfile] = useState(null);
+  const [enrolledSubjects, setEnrolledSubjects] = useState([]);
+
   // Papers Data
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,15 +78,38 @@ function PreviousPapers({ user }) {
   const paperExams = [...new Set(papers.map((paper) => paper.exam_name).filter(Boolean))];
   const paperYears = [...new Set(papers.map((paper) => paper.year).filter(Boolean))]
     .sort((a, b) => b - a);
-  const visiblePapers = papers.filter((paper) =>
-    (selectedSubject === "All" || paper.subject === selectedSubject)
-    && (selectedExam === "All" || paper.exam_name === selectedExam)
-    && (selectedYear === "All" || String(paper.year) === selectedYear)
-    && (selectedSource === "All" || (paper.source || "teacher").toLowerCase() === selectedSource.toLowerCase())
-    && (!topicSearch.trim() || (paper.topic_tags || []).some((tag) =>
-      tag.toLowerCase().includes(topicSearch.trim().toLowerCase())
-    ))
-  );
+
+  const detectEnrolledSubjects = (courseStr = "", streamStr = "") => {
+    const combined = `${courseStr || ""} ${streamStr || ""}`.toLowerCase();
+    if (combined.includes("bio") || combined.includes("science") || combined.includes("med") || combined.includes("b.sc")) {
+      return ["Biology", "Mathematics", "Physics"];
+    }
+    if (combined.includes("comp") || combined.includes("it") || combined.includes("diploma") || combined.includes("tech") || combined.includes("eng")) {
+      return ["Computer Science", "Mathematics"];
+    }
+    if (combined.includes("comm") || combined.includes("bus") || combined.includes("manage") || combined.includes("fin")) {
+      return ["Mathematics", "Economics", "Finance", "Marketing"];
+    }
+    return ["Mathematics", "Computer Science", "Biology", "Physics"];
+  };
+
+  const visiblePapers = papers.filter((paper) => {
+    const matchesSubject = (selectedSubject === "All" || paper.subject === selectedSubject);
+    const matchesExam = (selectedExam === "All" || paper.exam_name === selectedExam);
+    let matchesYear = true;
+    if (selectedYear !== "All") {
+      matchesYear = String(paper.year) === selectedYear;
+    } else if (onlyPreviousTwoYears) {
+      matchesYear = (Number(paper.year) === prevYear1 || Number(paper.year) === prevYear2);
+    }
+    const matchesSource = (selectedSource === "All" || (paper.source || "teacher").toLowerCase() === selectedSource.toLowerCase());
+    const matchesTopic = (!topicSearch.trim()
+      || (paper.topic_tags || []).some((tag) => tag.toLowerCase().includes(topicSearch.trim().toLowerCase()))
+      || (paper.title || "").toLowerCase().includes(topicSearch.trim().toLowerCase())
+    );
+
+    return matchesSubject && matchesExam && matchesYear && matchesSource && matchesTopic;
+  });
 
   useEffect(() => {
     return () => {
@@ -88,8 +121,31 @@ function PreviousPapers({ user }) {
     setLoading(true);
     setError(null);
     try {
+      // 1. Fetch student's profile to discover enrolled course and primary subject
+      let prof = null;
+      try {
+        const profRes = await api.get("/profile/me");
+        prof = profRes.data || {};
+        setStudentProfile(prof);
+      } catch {
+        prof = user || {};
+        setStudentProfile(prof);
+      }
+
+      const enrolled = detectEnrolledSubjects(prof?.course, prof?.stream);
+      setEnrolledSubjects(enrolled);
+
+      // 2. Fetch Question Papers
       const res = await api.get("/api/v1/papers", { params: { skip: 0, limit: 100 } });
-      setPapers(res.data.items || []);
+      const items = res.data.items || [];
+      setPapers(items);
+
+      // 3. Pre-select student's enrolled subject automatically on login
+      const availableSubjs = [...new Set(items.map((p) => p.subject).filter(Boolean))];
+      const matched = enrolled.find((s) => availableSubjs.includes(s));
+      if (matched) {
+        setSelectedSubject(matched);
+      }
     } catch (err) {
       console.error("Question papers request failed:", err);
       setError(err.response?.data?.detail || "Failed to load question papers library.");
@@ -101,6 +157,46 @@ function PreviousPapers({ user }) {
   useEffect(() => {
     fetchPapers();
   }, []);
+
+  const handleOpenStudyMode = async (paperId) => {
+    setLoadingPaper(true);
+    try {
+      let res;
+      try {
+        res = await api.get(`/api/v1/papers/${paperId}`);
+      } catch {
+        res = await api.get(`/papers/${paperId}`);
+      }
+      setActivePaper(res.data);
+      setViewMode("study");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load solved question paper.");
+    } finally {
+      setLoadingPaper(false);
+    }
+  };
+
+  const handleStartTimedExam = async (paperId) => {
+    setLoadingPaper(true);
+    try {
+      let res;
+      try {
+        res = await api.get(`/api/v1/papers/${paperId}`);
+      } catch {
+        res = await api.get(`/papers/${paperId}`);
+      }
+      setActivePaper(res.data);
+      setExamAnswers({});
+      setExamTimeLeft((res.data.time_limit_minutes || 60) * 60);
+      setViewMode("timed_exam");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to start timed paper attempt.");
+    } finally {
+      setLoadingPaper(false);
+    }
+  };
 
   const handleSubmitExam = useCallback(async () => {
     if (!activePaper || submittingExam) return;
@@ -147,36 +243,6 @@ function PreviousPapers({ user }) {
 
     return () => clearInterval(timer);
   }, [viewMode, examTimeLeft, handleSubmitExam]);
-
-  const handleOpenStudyMode = async (paperId) => {
-    setLoadingPaper(true);
-    try {
-      const res = await api.get(`/papers/${paperId}`);
-      setActivePaper(res.data);
-      setViewMode("study");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to load solved question paper.");
-    } finally {
-      setLoadingPaper(false);
-    }
-  };
-
-  const handleStartTimedExam = async (paperId) => {
-    setLoadingPaper(true);
-    try {
-      const res = await api.get(`/papers/${paperId}`);
-      setActivePaper(res.data);
-      setExamAnswers({});
-      setExamTimeLeft((res.data.time_limit_minutes || 60) * 60);
-      setViewMode("timed_exam");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to start timed paper attempt.");
-    } finally {
-      setLoadingPaper(false);
-    }
-  };
 
   const formatTimer = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -342,7 +408,7 @@ function PreviousPapers({ user }) {
             <div>
               <h2>📄 Solved Previous-Year Question Papers</h2>
               <p className="page-subtitle">
-                Official teacher-uploaded papers and AI-generated practice papers with verified answer keys & solutions for your course.
+                Official teacher-uploaded papers and real solved question papers with verified answer keys & solutions for your enrolled course.
               </p>
             </div>
             <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
@@ -350,7 +416,7 @@ function PreviousPapers({ user }) {
                 className="action-btn-primary"
                 style={{ background: "#4f46e5", display: "inline-flex", alignItems: "center", gap: "6px" }}
                 onClick={() => {
-                  setAiSubject(paperSubjects[0] || "Marketing Management");
+                  setAiSubject(paperSubjects[0] || "Computer Science");
                   setShowAiModal(true);
                 }}
               >
@@ -364,6 +430,60 @@ function PreviousPapers({ user }) {
                   + Upload Question Paper
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Enrolled Course & 2-Year Auto Banner */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)",
+              border: "1px solid #bbf7d0",
+              borderRadius: "12px",
+              padding: "16px 20px",
+              marginBottom: "16px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "12px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <span style={{ fontSize: "20px" }}>🎯</span>
+                <span style={{ fontWeight: "700", color: "#065f46", fontSize: "15px" }}>
+                  Enrolled Course: {studentProfile?.course || user?.course || "Academic Curriculum"}
+                </span>
+                <span style={{ background: "#10b981", color: "white", padding: "2px 8px", borderRadius: "10px", fontSize: "11px", fontWeight: "700" }}>
+                  Active Scope
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: "13px", color: "#047857" }}>
+                Showing previous 2 examination years (<strong>{prevYear1}</strong> & <strong>{prevYear2}</strong>) for your registered subject field.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <button
+                onClick={() => setOnlyPreviousTwoYears(!onlyPreviousTwoYears)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  border: onlyPreviousTwoYears ? "1px solid #059669" : "1px solid #cbd5e1",
+                  background: onlyPreviousTwoYears ? "#059669" : "#ffffff",
+                  color: onlyPreviousTwoYears ? "#ffffff" : "#475569",
+                  transition: "all 0.2s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <span>{onlyPreviousTwoYears ? "✓" : "⚡"}</span>
+                {onlyPreviousTwoYears ? `Showing Previous 2 Years (${prevYear1} & ${prevYear2})` : "Filter: All Available Years"}
+              </button>
             </div>
           </div>
 
@@ -388,17 +508,21 @@ function PreviousPapers({ user }) {
               ))}
             </div>
 
-            {/* Subject Tabs */}
+            {/* Subject Tabs with Enrolled Subject Highlight */}
             <div className="stream-filter-pills">
-              {["All", ...paperSubjects].map((subj) => (
-                <button
-                  key={subj}
-                  className={`filter-pill ${selectedSubject === subj ? "active" : ""}`}
-                  onClick={() => setSelectedSubject(subj)}
-                >
-                  {subj}
-                </button>
-              ))}
+              {["All", ...paperSubjects].map((subj) => {
+                const isEnrolledSubj = enrolledSubjects.includes(subj);
+                return (
+                  <button
+                    key={subj}
+                    className={`filter-pill ${selectedSubject === subj ? "active" : ""}`}
+                    style={isEnrolledSubj ? { borderColor: "#059669", fontWeight: selectedSubject === subj ? "700" : "600" } : {}}
+                    onClick={() => setSelectedSubject(subj)}
+                  >
+                    {isEnrolledSubj ? `⭐ ${subj}` : subj}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Exam Filter Dropdown */}
@@ -421,7 +545,7 @@ function PreviousPapers({ user }) {
                 className="search-input"
                 style={{ padding: "6px 12px", fontSize: "13px" }}
               >
-                <option value="All">All Years</option>
+                <option value="All">{onlyPreviousTwoYears ? `Last 2 Years (${prevYear1}, ${prevYear2})` : "All Years"}</option>
                 {paperYears.map((year) => (
                   <option key={year} value={year}>{year}</option>
                 ))}
@@ -468,6 +592,11 @@ function PreviousPapers({ user }) {
                     <span className="exam-code-badge">{paper.exam_name || "Official"}</span>
                     <span className="degree-tag">{paper.year}</span>
                     <span className="stream-pill">{paper.subject}</span>
+                    {(Number(paper.year) === prevYear1 || Number(paper.year) === prevYear2) && (
+                      <span className="degree-tag" style={{ background: "#dbeafe", color: "#1e40af", fontWeight: 700 }}>
+                        🔥 Last 2 Yrs
+                      </span>
+                    )}
                     {paper.academic_year && (
                       <span className="degree-tag">{paper.academic_year}</span>
                     )}
