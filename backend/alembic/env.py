@@ -57,8 +57,27 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        from sqlalchemy import inspect, text
+
         # Ensure base tables exist if deploying to a brand-new database
         target_metadata.create_all(bind=connection)
+
+        # Check if the database was already created from latest models.py
+        inspector = inspect(connection)
+        tables = inspector.get_table_names()
+        if "subjects" in tables:
+            columns = [c["name"] for c in inspector.get_columns("subjects")]
+            if "course" in columns:
+                # The schema already has the latest columns from models.py
+                head_rev = context.get_head_revision() or "f7a6c4310d2b"
+                has_alembic = "alembic_version" in tables
+                if not has_alembic:
+                    connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"))
+                connection.execute(text("DELETE FROM alembic_version"))
+                connection.execute(text(f"INSERT INTO alembic_version (version_num) VALUES ('{head_rev}')"))
+                connection.commit()
+                print(f"Database schema already at latest models definition. Stamped Alembic to head: {head_rev}")
+                return
 
         context.configure(
             connection=connection,
