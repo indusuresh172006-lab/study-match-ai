@@ -60,6 +60,27 @@ def seed():
             teacher_user.approval_status = "approved"
             db.commit()
 
+        # Seed Administrator Users
+        for adm_email in ["admin@studymatch.ai", "admin@gmail.com"]:
+            admin_user = db.query(Student).filter(Student.email == adm_email).first()
+            if not admin_user:
+                admin_user = Student(
+                    name="System Administrator",
+                    email=adm_email,
+                    password_hash=get_password_hash("admin123"),
+                    role="admin",
+                    approval_status="approved",
+                )
+                db.add(admin_user)
+                db.commit()
+                db.refresh(admin_user)
+                print(f"Created admin: {adm_email} / admin123")
+            else:
+                admin_user.role = "admin"
+                admin_user.approval_status = "approved"
+                admin_user.password_hash = get_password_hash("admin123")
+                db.commit()
+
         # Seed profile
         prof = db.query(StudentProfile).filter(StudentProfile.student_id == student_user.id).first()
         if not prof:
